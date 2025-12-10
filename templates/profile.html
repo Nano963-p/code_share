@@ -1,68 +1,262 @@
 {% extends "base.html" %}
 
-{% block title %}Mon Profil - Mini GitHub{% endblock %}
+{% block title %}Mon Profil - CodeShare{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-page {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    
+    .profile-card {
+        background: white;
+        border-radius: 12px;
+        padding: 40px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 30px;
+    }
+    
+    .profile-header {
+        display: flex;
+        align-items: center;
+        gap: 30px;
+        margin-bottom: 30px;
+        padding-bottom: 30px;
+        border-bottom: 2px solid #e1e4e8;
+    }
+    
+    .profile-avatar {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        font-weight: bold;
+        box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+    }
+    
+    .profile-info {
+        flex: 1;
+    }
+    
+    .profile-username {
+        font-size: 2rem;
+        color: var(--primary);
+        margin-bottom: 10px;
+        font-weight: 600;
+    }
+    
+    .profile-email {
+        color: var(--gray);
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+    
+    .profile-joined {
+        color: var(--gray);
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 25px;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        transition: transform 0.3s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .stat-card:nth-child(2) {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
+    }
+    
+    .stat-card:nth-child(3) {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+    }
+    
+    .stat-icon {
+        font-size: 2.5rem;
+        margin-bottom: 15px;
+        opacity: 0.9;
+    }
+    
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        font-size: 1rem;
+        opacity: 0.9;
+    }
+    
+    .info-section {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .section-title {
+        font-size: 1.5rem;
+        color: var(--primary);
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .section-title i {
+        color: var(--accent);
+    }
+    
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 15px;
+        background: var(--secondary);
+        border-radius: 8px;
+        margin-bottom: 10px;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: var(--primary);
+    }
+    
+    .info-value {
+        color: var(--gray);
+    }
+    
+    .badge {
+        display: inline-block;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    .badge-success {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    @media (max-width: 768px) {
+        .profile-header {
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-body">
-                <div class="text-center mb-4">
-                    <div class="mb-3">
-                        <i class="bi bi-person-circle" style="font-size: 5rem; color: #667eea;"></i>
-                    </div>
-                    <h2 class="mb-1">{{ user[0] }}</h2>
-                    <p class="text-muted">{{ user[1] }}</p>
-                    <small class="text-muted">
-                        <i class="bi bi-calendar"></i> Membre depuis le {{ user[2].strftime('%d/%m/%Y') }}
-                    </small>
+<div class="profile-page">
+    <div class="profile-card">
+        <div class="profile-header">
+            <div class="profile-avatar">
+                {{ user[0][0].upper() }}
+            </div>
+            <div class="profile-info">
+                <h1 class="profile-username">{{ user[0] }}</h1>
+                <div class="profile-email">
+                    <i class="fas fa-envelope"></i>
+                    <span>{{ user[1] }}</span>
                 </div>
-
-                <hr>
-
-                <div class="row text-center">
-                    <div class="col-md-4 mb-3">
-                        <div class="card bg-primary text-white">
-                            <div class="card-body">
-                                <i class="bi bi-folder-fill" style="font-size: 2rem;"></i>
-                                <h3 class="mt-2">{{ project_count }}</h3>
-                                <p class="mb-0">Projets créés</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-4 mb-3">
-                        <div class="card bg-info text-white">
-                            <div class="card-body">
-                                <i class="bi bi-chat-fill" style="font-size: 2rem;"></i>
-                                <h3 class="mt-2">{{ comment_count }}</h3>
-                                <p class="mb-0">Commentaires</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-4 mb-3">
-                        <div class="card bg-danger text-white">
-                            <div class="card-body">
-                                <i class="bi bi-heart-fill" style="font-size: 2rem;"></i>
-                                <h3 class="mt-2">{{ like_count }}</h3>
-                                <p class="mb-0">Likes donnés</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <hr>
-
-                <div class="d-grid gap-2">
-                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
-                        <i class="bi bi-house-door"></i> Retour au tableau de bord
-                    </a>
-                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">
-                        <i class="bi bi-box-arrow-right"></i> Déconnexion
-                    </a>
+                <div class="profile-joined">
+                    <i class="fas fa-calendar-plus"></i>
+                    <span>Membre depuis le {{ user[2].strftime('%d/%m/%Y') }}</span>
                 </div>
             </div>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-folder"></i>
+                </div>
+                <div class="stat-number">{{ project_count }}</div>
+                <div class="stat-label">Projets créés</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-comment"></i>
+                </div>
+                <div class="stat-number">{{ comment_count }}</div>
+                <div class="stat-label">Commentaires</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-heart"></i>
+                </div>
+                <div class="stat-number">{{ like_count }}</div>
+                <div class="stat-label">Likes donnés</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="info-section">
+        <h2 class="section-title">
+            <i class="fas fa-info-circle"></i> Informations du compte
+        </h2>
+        
+        <div class="info-item">
+            <span class="info-label">
+                <i class="fas fa-user"></i> Nom d'utilisateur
+            </span>
+            <span class="info-value">{{ user[0] }}</span>
+        </div>
+        
+        <div class="info-item">
+            <span class="info-label">
+                <i class="fas fa-envelope"></i> Adresse email
+            </span>
+            <span class="info-value">{{ user[1] }}</span>
+        </div>
+        
+        <div class="info-item">
+            <span class="info-label">
+                <i class="fas fa-shield-alt"></i> Statut du compte
+            </span>
+            <span class="badge badge-success">Actif</span>
+        </div>
+        
+        <div class="info-item">
+            <span class="info-label">
+                <i class="fas fa-calendar"></i> Date d'inscription
+            </span>
+            <span class="info-value">{{ user[2].strftime('%d/%m/%Y à %H:%M') }}</span>
         </div>
     </div>
 </div>

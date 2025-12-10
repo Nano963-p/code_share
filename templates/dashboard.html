@@ -1,106 +1,192 @@
 {% extends "base.html" %}
 
-{% block title %}Tableau de bord - Mini GitHub{% endblock %}
+{% block title %}Tableau de bord - CodeShare{% endblock %}
+
+{% block extra_css %}
+<style>
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+.dashboard-header h1 {
+    font-size: 2rem;
+    color: var(--primary);
+}
+
+.tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #e1e4e8;
+}
+.tab {
+    padding: 12px 20px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--gray);
+}
+.tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+.projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+}
+
+.project-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border: 1px solid #e1e4e8;
+    cursor: pointer;
+    transition: 0.3s;
+}
+.project-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
+
+.project-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.project-description {
+    margin: 10px 0;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    justify-content: center;
+    align-items: center;
+}
+
+.modal.active { display: flex; }
+
+.modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-8">
-        <div class="card mb-4">
-            <div class="card-body">
-                <h3 class="card-title mb-3">
-                    <i class="bi bi-folder"></i> Tous les projets
-                </h3>
-                
-                {% if projects %}
-                    {% for project in projects %}
-                    <div class="card mb-3 hover-shadow">
-                        <div class="card-body">
-                            <h5 class="card-title">
-                                <a href="{{ url_for('project', pid=project[0]) }}" class="text-decoration-none">
-                                    {{ project[1] }}
-                                </a>
-                            </h5>
-                            <p class="card-text text-muted">{{ project[2] or 'Aucune description' }}</p>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <small class="text-muted">
-                                    <i class="bi bi-person"></i> {{ project[4] }} • 
-                                    <i class="bi bi-calendar"></i> {{ project[3].strftime('%d/%m/%Y') }}
-                                </small>
-                                <div>
-                                    <span class="badge bg-primary">
-                                        <i class="bi bi-heart-fill"></i> {{ project[5] }}
-                                    </span>
-                                    <span class="badge bg-info">
-                                        <i class="bi bi-chat-fill"></i> {{ project[6] }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i> Aucun projet pour le moment. Créez le premier !
-                    </div>
-                {% endif %}
-            </div>
+
+<div class="dashboard-header">
+    <h1>📁 Mes Projets</h1>
+    <button class="btn btn-primary" onclick="openModal()">+ Nouveau Projet</button>
+</div>
+
+<div class="tabs">
+    <button class="tab active" onclick="switchTab('all', this)">🌍 Tous les projets</button>
+    <button class="tab" onclick="switchTab('mine', this)">👤 Mes projets</button>
+</div>
+
+<!-- ALL PROJECTS -->
+<div id="all-projects" class="tab-content active">
+    {% if projects %}
+    <div class="projects-grid">
+        {% for p in projects %}
+        <div class="project-card" data-href="{{ url_for('project', pid=p[0]) }}">
+            <div class="project-title">{{ p[1] }}</div>
+            <div class="project-description">{{ p[2] or "Aucune description" }}</div>
+            <small>👤 {{ p[4] }}</small><br>
+            <small>❤️ {{ p[5] }} 💬 {{ p[6] }} 📅 {{ p[3].strftime('%d/%m/%Y') }}</small>
         </div>
+        {% endfor %}
     </div>
+    {% else %}
+        <p>Aucun projet disponible.</p>
+    {% endif %}
+</div>
 
-    <div class="col-md-4">
-        <div class="card mb-4">
-            <div class="card-body">
-                <h5 class="card-title">
-                    <i class="bi bi-plus-circle"></i> Nouveau projet
-                </h5>
-                <form method="POST">
-                    <div class="mb-3">
-                        <label for="title" class="form-label">Titre</label>
-                        <input type="text" class="form-control" id="title" name="title" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="description" class="form-label">Description</label>
-                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-plus-lg"></i> Créer
-                    </button>
-                </form>
-            </div>
+<!-- MY PROJECTS -->
+<div id="my-projects" class="tab-content">
+    {% if my_projects %}
+    <div class="projects-grid">
+        {% for p in my_projects %}
+        <div class="project-card" data-href="{{ url_for('project', pid=p[0]) }}">
+            <div class="project-title">{{ p[1] }}</div>
+            <div class="project-description">{{ p[2] or "Aucune description" }}</div>
+            <small>👥 {{ p[4] }} membres | 📅 {{ p[3].strftime('%d/%m/%Y') }}</small>
         </div>
+        {% endfor %}
+    </div>
+    {% else %}
+        <p>Vous n'avez pas encore de projet.</p>
+    {% endif %}
+</div>
 
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">
-                    <i class="bi bi-folder-fill"></i> Mes projets
-                </h5>
-                {% if my_projects %}
-                    <div class="list-group list-group-flush">
-                        {% for project in my_projects %}
-                        <a href="{{ url_for('project', pid=project[0]) }}" 
-                           class="list-group-item list-group-item-action">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">{{ project[1] }}</h6>
-                                <small class="text-muted">
-                                    <i class="bi bi-people"></i> {{ project[4] }}
-                                </small>
-                            </div>
-                            <small class="text-muted">{{ project[3].strftime('%d/%m/%Y') }}</small>
-                        </a>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p class="text-muted mb-0">Vous n'avez pas encore de projets.</p>
-                {% endif %}
-            </div>
-        </div>
+<!-- MODAL -->
+<div id="newProjectModal" class="modal">
+    <div class="modal-content">
+        <h2>Créer un projet</h2>
+        <form method="POST" action="{{ url_for('dashboard') }}">
+            <input type="text" name="title" placeholder="Titre du projet" required><br><br>
+            <textarea name="description" placeholder="Description"></textarea><br><br>
+            <button type="submit">Créer</button>
+            <button type="button" onclick="closeModal()">Annuler</button>
+        </form>
     </div>
 </div>
 
-<style>
-    .hover-shadow:hover {
-        box-shadow: 0 5px 15px rgba(0,0,0,0.15);
-        transition: all 0.3s ease;
+<!-- ...existing code... -->
+
+<script>
+function switchTab(tab, btn) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+    if (tab === 'all') {
+        document.getElementById('all-projects').classList.add('active');
+    } else {
+        document.getElementById('my-projects').classList.add('active');
     }
-</style>
+}
+
+function openModal() {
+    document.getElementById('newProjectModal').classList.add('active');
+}
+
+function closeModal() {
+    document.getElementById('newProjectModal').classList.remove('active');
+}
+
+document.getElementById('newProjectModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+});
+
+// Single, correct event listener for project cards
+document.querySelectorAll('.project-card[data-href]').forEach(card => {
+    card.addEventListener('click', function() {
+        const href = this.getAttribute('data-href');
+        if (href) {
+            window.location.href = href;
+        }
+    });
+});
+</script>
+
 {% endblock %}

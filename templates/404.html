@@ -1,23 +1,161 @@
 {% extends "base.html" %}
 
-{% block title %}Page non trouvée - Mini GitHub{% endblock %}
+{% block title %}Page introuvable - CodeShare{% endblock %}
+
+{% block extra_css %}
+<style>
+    .error-page {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 60vh;
+        text-align: center;
+        padding: 40px 20px;
+    }
+    
+    .error-icon {
+        font-size: 6rem;
+        color: #e1e4e8;
+        margin-bottom: 30px;
+        animation: float 3s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-20px); }
+    }
+    
+    .error-code {
+        font-size: 4rem;
+        font-weight: bold;
+        color: var(--accent);
+        margin-bottom: 20px;
+    }
+    
+    .error-title {
+        font-size: 1.8rem;
+        color: var(--primary);
+        margin-bottom: 15px;
+        font-weight: 600;
+    }
+    
+    .error-message {
+        font-size: 1.1rem;
+        color: var(--gray);
+        margin-bottom: 30px;
+        max-width: 500px;
+        line-height: 1.6;
+    }
+    
+    .error-actions {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .error-actions .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .search-suggestion {
+        margin-top: 40px;
+        padding: 20px;
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e1e4e8;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        max-width: 500px;
+        width: 100%;
+    }
+    
+    .search-suggestion h3 {
+        font-size: 1rem;
+        color: var(--primary);
+        margin-bottom: 15px;
+        font-weight: 600;
+    }
+    
+    .quick-links {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        text-align: left;
+    }
+    
+    .quick-link {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px;
+        border-radius: 6px;
+        text-decoration: none;
+        color: var(--primary);
+        transition: background-color 0.2s;
+    }
+    
+    .quick-link:hover {
+        background-color: var(--secondary);
+    }
+    
+    .quick-link i {
+        color: var(--accent);
+        width: 20px;
+    }
+    
+    @media (max-width: 768px) {
+        .error-code { font-size: 3rem; }
+        .error-title { font-size: 1.5rem; }
+        .error-icon { font-size: 4rem; }
+        .error-actions {
+            flex-direction: column;
+            width: 100%;
+        }
+        .error-actions .btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center mt-5">
-    <div class="col-md-6 text-center">
-        <div class="card">
-            <div class="card-body p-5">
-                <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 5rem;"></i>
-                <h1 class="display-1 mt-3">404</h1>
-                <h3 class="mb-3">Page non trouvée</h3>
-                <p class="text-muted mb-4">
-                    Désolé, la page que vous recherchez n'existe pas ou a été déplacée.
-                </p>
-                <a href="{{ url_for('dashboard') if session.user_id else url_for('login') }}" 
-                   class="btn btn-primary btn-lg">
-                    <i class="bi bi-house-door"></i> Retour à l'accueil
-                </a>
-            </div>
+<div class="error-page">
+    <div class="error-icon">
+        <i class="fas fa-search"></i>
+    </div>
+    <h1 class="error-code">404</h1>
+    <h2 class="error-title">Page introuvable</h2>
+    <p class="error-message">
+        Désolé, la page que vous recherchez n'existe pas ou a été déplacée.
+    </p>
+    <div class="error-actions">
+        <button onclick="window.history.back()" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Retour
+        </button>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+            <i class="fas fa-home"></i> Tableau de bord
+        </a>
+    </div>
+    
+    <div class="search-suggestion">
+        <h3>Liens utiles :</h3>
+        <div class="quick-links">
+            <a href="{{ url_for('dashboard') }}" class="quick-link">
+                <i class="fas fa-folder"></i>
+                <span>Tous les projets</span>
+            </a>
+            <a href="{{ url_for('profile') }}" class="quick-link">
+                <i class="fas fa-user"></i>
+                <span>Mon profil</span>
+            </a>
+            <a href="{{ url_for('dashboard') }}" class="quick-link">
+                <i class="fas fa-plus"></i>
+                <span>Créer un nouveau projet</span>
+            </a>
         </div>
     </div>
 </div>

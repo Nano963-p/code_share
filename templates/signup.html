@@ -1,54 +1,215 @@
 {% extends "base.html" %}
 
-{% block title %}Inscription - Mini GitHub{% endblock %}
+{% block title %}Inscription - CodeShare{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    .signup-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        padding: 40px;
+        width: 100%;
+        max-width: 450px;
+        animation: fadeIn 0.5s ease-out;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .signup-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .signup-header .logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--primary);
+        margin-bottom: 10px;
+    }
+    
+    .signup-header .logo i {
+        color: #f5576c;
+    }
+    
+    .signup-header h2 {
+        color: var(--gray);
+        font-size: 1.2rem;
+        font-weight: normal;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: var(--primary);
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #e1e4e8;
+        border-radius: 6px;
+        font-size: 1rem;
+        transition: all 0.3s;
+    }
+    
+    .form-control:focus {
+        outline: none;
+        border-color: #f5576c;
+        box-shadow: 0 0 0 3px rgba(245, 87, 108, 0.1);
+    }
+    
+    .btn-signup {
+        width: 100%;
+        padding: 12px;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    
+    .btn-signup:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+    }
+    
+    .divider {
+        text-align: center;
+        margin: 20px 0;
+        color: var(--gray);
+        position: relative;
+    }
+    
+    .divider::before,
+    .divider::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        width: 40%;
+        height: 1px;
+        background: #e1e4e8;
+    }
+    
+    .divider::before {
+        left: 0;
+    }
+    
+    .divider::after {
+        right: 0;
+    }
+    
+    .login-link {
+        text-align: center;
+        margin-top: 20px;
+        color: var(--gray);
+    }
+    
+    .login-link a {
+        color: #f5576c;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    
+    .login-link a:hover {
+        text-decoration: underline;
+    }
+    
+    .flash-messages {
+        margin-bottom: 20px;
+    }
+    
+    .password-requirements {
+        font-size: 0.85rem;
+        color: var(--gray);
+        margin-top: 5px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center mt-5">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-body p-5">
-                <div class="text-center mb-4">
-                    <i class="bi bi-person-plus-fill" style="font-size: 3rem; color: #667eea;"></i>
-                    <h2 class="mt-3">Créer un compte</h2>
-                    <p class="text-muted">Rejoignez Mini GitHub aujourd'hui</p>
-                </div>
-
-                <form method="POST">
-                    <div class="mb-3">
-                        <label for="username" class="form-label">Nom d'utilisateur</label>
-                        <input type="text" class="form-control" id="username" name="username" required autofocus>
-                        <div class="form-text">Choisissez un nom unique</div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="email" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="email" name="email" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Mot de passe</label>
-                        <input type="password" class="form-control" id="password" name="password" required minlength="6">
-                        <div class="form-text">Au moins 6 caractères</div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="confirm_password" class="form-label">Confirmer le mot de passe</label>
-                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
-                    </div>
-
-                    <div class="d-grid mb-3">
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            <i class="bi bi-check-circle"></i> Créer mon compte
-                        </button>
-                    </div>
-
-                    <div class="text-center">
-                        <p class="text-muted mb-0">Déjà un compte ?</p>
-                        <a href="{{ url_for('login') }}" class="text-decoration-none fw-bold">Se connecter</a>
-                    </div>
-                </form>
+<div class="signup-container">
+    <div class="signup-header">
+        <div class="logo">
+            <i class="fab fa-github"></i>
+            <span>CodeShare</span>
+        </div>
+        <h2>Créez votre compte</h2>
+    </div>
+    
+    <form method="POST" action="{{ url_for('signup') }}">
+        <div class="form-group">
+            <label for="username">
+                <i class="fas fa-user"></i> Nom d'utilisateur
+            </label>
+            <input type="text" id="username" name="username" class="form-control" 
+                   placeholder="Choisissez un nom d'utilisateur" required autofocus>
+        </div>
+        
+        <div class="form-group">
+            <label for="email">
+                <i class="fas fa-envelope"></i> Email
+            </label>
+            <input type="email" id="email" name="email" class="form-control" 
+                   placeholder="votre@email.com" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">
+                <i class="fas fa-lock"></i> Mot de passe
+            </label>
+            <input type="password" id="password" name="password" class="form-control" 
+                   placeholder="Créez un mot de passe" required minlength="6">
+            <div class="password-requirements">
+                Minimum 6 caractères
             </div>
         </div>
+        
+        <div class="form-group">
+            <label for="confirm_password">
+                <i class="fas fa-lock"></i> Confirmer le mot de passe
+            </label>
+            <input type="password" id="confirm_password" name="confirm_password" class="form-control" 
+                   placeholder="Confirmez votre mot de passe" required>
+        </div>
+        
+        <button type="submit" class="btn-signup">
+            <i class="fas fa-user-plus"></i> Créer mon compte
+        </button>
+    </form>
+    
+    <div class="divider">OU</div>
+    
+    <div class="login-link">
+        Déjà un compte ? <a href="{{ url_for('login') }}">Se connecter</a>
     </div>
 </div>
 {% endblock %}
