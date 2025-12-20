@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login • CodeShare</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+</head>
+<body class="galaxy auth">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="logo-orbit big"></div>
+      <div>
+        <div class="brand-name">CodeShare</div>
+        <div class="brand-sub">Sign in to continue</div>
+      </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="toast-stack">
+          {% for cat, msg in messages %}
+            <div class="toast {{ cat }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <form method="post" class="form">
+      <label>Email</label>
+      <input name="email" type="email" placeholder="alice@example.com" required>
+
+      <label>Password</label>
+      <input name="password" type="password" placeholder="••••••••" required>
+
+      <button class="btn btn-primary" type="submit">Login</button>
+      <div class="auth-link">
+        No account? <a href="{{ url_for('register') }}">Create one</a>
+      </div>
+    </form>
+  </div>
+</body>
+</html>

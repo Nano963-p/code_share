@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="page-head">
+  <div>
+    <h1>Create New Project</h1>
+    <p class="muted">Start a new repository in CodeShare.</p>
+  </div>
+</section>
+
+<div class="card">
+  <form method="post" class="form grid2">
+    <div>
+      <label>Project name</label>
+      <input name="name" placeholder="Awesome App" required>
+    </div>
+    <div>
+      <label>Visibility</label>
+      <select name="visibility">
+        <option value="PUBLIC">PUBLIC</option>
+        <option value="PRIVATE">PRIVATE</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Language</label>
+      <input name="language" placeholder="Python / C / JavaScript">
+    </div>
+    <div>
+      <label>License</label>
+      <input name="license" placeholder="MIT / Apache-2.0 / GPL-3.0">
+    </div>
+
+    <div class="span2">
+      <label>Description</label>
+      <textarea name="description" rows="4" placeholder="What is this project about?"></textarea>
+    </div>
+
+    <div class="span2">
+      <button class="btn btn-primary" type="submit">Create Project</button>
+      <a class="btn btn-ghost" href="{{ url_for('dashboard') }}">Cancel</a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

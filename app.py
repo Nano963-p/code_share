@@ -1,601 +1,664 @@
-# ...existing code...
-import os
-import logging
-from datetime import datetime
-from functools import wraps
-
-from flask import (
-    Flask,
-    render_template,
-    request,
-    redirect,
-    session,
-    url_for,
-    flash,
-    send_file,
-)
-from werkzeug.utils import secure_filename
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+import mysql.connector
+from mysql.connector import Error
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from db import get_db, init_app
-
-# --- config / logging ---
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "REDACTED")
+app.secret_key = "REDACTED"
 
-UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "uploads")
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB
+DB_CONFIG = {
+    "host": "localhost",
+    "user": "root",
+    "password": "REDACTED",          # <-- put your mysql password
+    "database": "codeshare",
+    "charset": "utf8mb4",
+    "collation": "utf8mb4_unicode_ci",
+}
 
-init_app(app)
+# -------------------------
+# DB helpers
+# -------------------------
+def get_conn():
+    return mysql.connector.connect(**DB_CONFIG)
 
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "pdf", "txt", "py", "js", "html", "css", "md"}
+def q_all(sql, params=None):
+    conn = get_conn()
+    cur = conn.cursor(dictionary=True)
+    cur.execute(sql, params or ())
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
 
+def q_one(sql, params=None):
+    conn = get_conn()
+    cur = conn.cursor(dictionary=True)
+    cur.execute(sql, params or ())
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row
 
-def allowed_file(filename: str) -> bool:
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+def exec_sql(sql, params=None):
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(sql, params or ())
+        conn.commit()
+        last_id = cur.lastrowid
+        cur.close()
+        conn.close()
+        return last_id, None
+    except Error as e:
+        conn.rollback()
+        cur.close()
+        conn.close()
+        return None, str(e)
 
+def exec_many(sql, params_seq):
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.executemany(sql, params_seq)
+        conn.commit()
+        cur.close()
+        conn.close()
+        return None
+    except Error as e:
+        conn.rollback()
+        cur.close()
+        conn.close()
+        return str(e)
 
-def login_required(f):
-    @wraps(f)
-    def wrapped(*args, **kwargs):
-        if not session.get("user_id"):
-            flash("Vous devez être connecté pour accéder à cette page.", "warning")
-            return redirect(url_for("login"))
-        return f(*args, **kwargs)
+def log_activity(actor_id, project_id, action, entity_type, entity_id=None, details_json=None):
+    exec_sql(
+        """
+        INSERT INTO activity_log(actor_id, project_id, action, entity_type, entity_id, details)
+        VALUES (%s,%s,%s,%s,%s,%s)
+        """,
+        (actor_id, project_id, action, entity_type, entity_id, details_json),
+    )
 
-    return wrapped
-
-
-def get_current_user():
-    """Return small dict for templates (id, username, email) or None."""
+# -------------------------
+# Auth helpers
+# -------------------------
+def me():
     uid = session.get("user_id")
     if not uid:
         return None
-    db = get_db()
-    cur = db.cursor()
-    try:
-        cur.execute("SELECT id, username, email FROM users WHERE id = %s", (uid,))
-        row = cur.fetchone()
-        if not row:
-            return None
-        return {"id": row[0], "username": row[1], "email": row[2]}
-    except Exception as e:
-        logger.error("get_current_user error: %s", e)
-        return None
-    finally:
-        cur.close()
+    return q_one("SELECT id, username, email, bio, followers_count, following_count FROM users WHERE id=%s", (uid,))
 
+def login_required():
+    if not session.get("user_id"):
+        flash("Please login first.", "warn")
+        return False
+    return True
 
-# ---------------- AUTH ----------------
+@app.context_processor
+def inject_globals():
+    return {"me": me(), "path": request.path}
 
-@app.route("/", methods=["GET", "POST"])
-def login():
-    if session.get("user_id"):
-        return redirect(url_for("dashboard"))
+# -------------------------
+# Routes
+# -------------------------
+@app.route("/")
+def index():
+    return redirect(url_for("dashboard" if session.get("user_id") else "login"))
 
+# ---- AUTH ----
+@app.route("/register", methods=["GET", "POST"])
+def register():
     if request.method == "POST":
-        username = (request.form.get("username") or "").strip()
-        password = request.form.get("password") or ""
-        if not username or not password:
-            flash("Veuillez remplir tous les champs.", "danger")
-            return render_template("login.html")
-
-        db = get_db()
-        cur = db.cursor()
-        try:
-            cur.execute("SELECT id, password FROM users WHERE username = %s", (username,))
-            row = cur.fetchone()
-            if row and check_password_hash(row[1], password):
-                session.clear()
-                session["user_id"] = row[0]
-                flash(f"Bienvenue {username}!", "success")
-                return redirect(url_for("dashboard"))
-            flash("Nom d'utilisateur ou mot de passe incorrect.", "danger")
-        except Exception as e:
-            logger.error("Login error: %s", e)
-            flash("Une erreur est survenue. Veuillez réessayer.", "danger")
-        finally:
-            cur.close()
-
-    return render_template("login.html")
-
-
-@app.route("/signup", methods=["GET", "POST"])
-def signup():
-    if session.get("user_id"):
-        return redirect(url_for("dashboard"))
-
-    if request.method == "POST":
-        username = (request.form.get("username") or "").strip()
-        email = (request.form.get("email") or "").strip()
-        password = request.form.get("password") or ""
-        confirm = request.form.get("confirm_password") or ""
+        username = request.form.get("username", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
 
         if not username or not email or not password:
-            flash("Tous les champs sont obligatoires.", "danger")
-            return render_template("signup.html")
-        if password != confirm:
-            flash("Les mots de passe ne correspondent pas.", "danger")
-            return render_template("signup.html")
-        if len(password) < 6:
-            flash("Le mot de passe doit contenir au moins 6 caractères.", "danger")
-            return render_template("signup.html")
+            flash("All fields are required.", "danger")
+            return redirect(url_for("register"))
 
-        db = get_db()
-        cur = db.cursor()
-        try:
-            cur.execute("SELECT id FROM users WHERE username = %s OR email = %s", (username, email))
-            if cur.fetchone():
-                flash("Ce nom d'utilisateur ou email est déjà utilisé.", "danger")
-                return render_template("signup.html")
+        pw_hash = generate_password_hash(password)
 
-            hashed = generate_password_hash(password)
-            cur.execute("INSERT INTO users (username, email, password) VALUES (%s, %s, %s)", (username, email, hashed))
-            db.commit()
-            flash("Compte créé avec succès! Vous pouvez maintenant vous connecter.", "success")
+        new_id, err = exec_sql(
+            "INSERT INTO users(username, email, password_hash, bio) VALUES (%s,%s,%s,%s)",
+            (username, email, pw_hash, "Hello, I'm new on CodeShare."),
+        )
+        if err:
+            flash(f"Register failed: {err}", "danger")
+            return redirect(url_for("register"))
+
+        session["user_id"] = new_id
+        flash("Account created. Welcome!", "success")
+        log_activity(new_id, None, "REGISTER", "USER", new_id, None)
+        return redirect(url_for("dashboard"))
+
+    return render_template("auth_register.html")
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+
+        user = q_one("SELECT id, password_hash, is_active FROM users WHERE email=%s", (email,))
+        if not user or not user["is_active"]:
+            flash("Invalid credentials.", "danger")
             return redirect(url_for("login"))
-        except Exception as e:
-            db.rollback()
-            logger.error("Signup error: %s", e)
-            flash("Une erreur est survenue lors de la création du compte.", "danger")
-        finally:
-            cur.close()
 
-    return render_template("signup.html")
+        if not check_password_hash(user["password_hash"], password):
+            flash("Invalid credentials.", "danger")
+            return redirect(url_for("login"))
 
+        session["user_id"] = user["id"]
+        flash("Welcome back!", "success")
+        log_activity(user["id"], None, "LOGIN", "USER", user["id"], None)
+        return redirect(url_for("dashboard"))
+
+    return render_template("auth_login.html")
 
 @app.route("/logout")
 def logout():
+    uid = session.get("user_id")
     session.clear()
-    flash("Vous avez été déconnecté.", "info")
+    if uid:
+        log_activity(uid, None, "LOGOUT", "USER", uid, None)
+    flash("Logged out.", "info")
     return redirect(url_for("login"))
 
-
-# ---------------- DASHBOARD ----------------
-
-@app.route("/dashboard", methods=["GET", "POST"])
-@login_required
+# ---- DASHBOARD ----
+@app.route("/dashboard")
 def dashboard():
-    db = get_db()
-    uid = session.get("user_id")
+    if not login_required():
+        return redirect(url_for("login"))
 
-    if request.method == "POST":
-        title = (request.form.get("title") or "").strip()
-        description = (request.form.get("description") or "").strip()
-        if not title:
-            flash("Le titre du projet est obligatoire.", "danger")
-            return redirect(url_for("dashboard"))
-        cur = db.cursor()
-        try:
-            cur.execute("INSERT INTO projects (title, description, owner_id) VALUES (%s, %s, %s)", (title, description, uid))
-            project_id = cur.lastrowid
-            cur.execute("INSERT INTO project_members (project_id, user_id, role) VALUES (%s, %s, %s)", (project_id, uid, "owner"))
-            db.commit()
-            flash("Projet créé avec succès!", "success")
-            return redirect(url_for("project", pid=project_id))
-        except Exception as e:
-            db.rollback()
-            logger.error("Create project error: %s", e)
-            flash("Erreur lors de la création du projet.", "danger")
-        finally:
-            cur.close()
+    uid = session["user_id"]
 
-    projects = []
-    my_projects = []
-    cur = db.cursor()
-    try:
-        cur.execute(
-            """
-            SELECT
-              p.id, p.title, p.description, p.created_at,
-              u.username AS owner_name,
-              (SELECT COUNT(*) FROM likes WHERE project_id = p.id) AS like_count,
-              (SELECT COUNT(*) FROM comments WHERE project_id = p.id) AS comment_count,
-              (SELECT COUNT(*) FROM project_members WHERE project_id = p.id) AS member_count
-            FROM projects p
-            JOIN users u ON p.owner_id = u.id
-            ORDER BY p.created_at DESC
-            """
-        )
-        projects = cur.fetchall()
+    # My summary cards
+    my_projects_count = q_one(
+        "SELECT COUNT(*) AS c FROM projects WHERE owner_id=%s",
+        (uid,),
+    )["c"]
 
-        cur.execute(
-            """
-            SELECT
-              p.id, p.title, p.description, p.created_at,
-              u.username AS owner_name,
-              (SELECT COUNT(*) FROM likes WHERE project_id = p.id) AS like_count,
-              (SELECT COUNT(*) FROM comments WHERE project_id = p.id) AS comment_count,
-              (SELECT COUNT(*) FROM project_members WHERE project_id = p.id) AS member_count
-            FROM projects p
-            JOIN users u ON p.owner_id = u.id
-            WHERE p.owner_id = %s
-            ORDER BY p.created_at DESC
-            """,
-            (uid,),
-        )
-        my_projects = cur.fetchall()
-    except Exception as e:
-        logger.error("Dashboard query error: %s", e)
-        flash(f"Erreur lors du chargement des projets: {str(e)}", "danger")
-    finally:
-        cur.close()
+    stars_received = q_one(
+        """
+        SELECT COALESCE(SUM(p.stars_count),0) AS s
+        FROM projects p
+        WHERE p.owner_id=%s
+        """,
+        (uid,),
+    )["s"]
 
-    # keep tuples so templates using p[0], etc. work
-    return render_template("dashboard.html", projects=projects, my_projects=my_projects)
+    followers_count = q_one("SELECT followers_count AS f FROM users WHERE id=%s", (uid,))["f"]
 
-
-# ---------------- PROJECT ----------------
-
-@app.route("/project/<int:pid>", methods=["GET", "POST"])
-@login_required
-def project(pid):
-    db = get_db()
-    uid = session.get("user_id")
-    cur = db.cursor()
-    try:
-        cur.execute(
-            """
-            SELECT p.id, p.title, p.description, p.owner_id, p.created_at, u.username AS owner_name
-            FROM projects p
-            JOIN users u ON p.owner_id = u.id
-            WHERE p.id = %s
-            """,
-            (pid,),
-        )
-        project_data = cur.fetchone()
-        if not project_data:
-            flash("Projet introuvable.", "danger")
-            return redirect(url_for("dashboard"))
-
-        is_owner = project_data[3] == uid
-
-        if request.method == "POST":
-            if "comment" in request.form:
-                msg = (request.form.get("comment") or "").strip()
-                if msg:
-                    try:
-                        cur.execute("INSERT INTO comments (project_id, user_id, message) VALUES (%s, %s, %s)", (pid, uid, msg))
-                        db.commit()
-                        flash("Commentaire ajouté!", "success")
-                    except Exception as e:
-                        db.rollback()
-                        logger.error("Add comment error: %s", e)
-                        flash("Erreur lors de l'ajout du commentaire.", "danger")
-            elif "file" in request.files:
-                f = request.files["file"]
-                if f and f.filename and allowed_file(f.filename):
-                    filename = secure_filename(f.filename)
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"{timestamp}_{filename}"
-                    path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-                    abs_path = os.path.abspath(path)
-                    if not abs_path.startswith(os.path.abspath(app.config["UPLOAD_FOLDER"]) + os.sep):
-                        flash("Chemin de fichier invalide.", "danger")
-                    else:
-                        try:
-                            f.save(abs_path)
-                            cur.execute(
-                                "INSERT INTO files (project_id, filename, filepath, uploaded_by) VALUES (%s, %s, %s, %s)",
-                                (pid, filename, abs_path, uid),
-                            )
-                            db.commit()
-                            flash("Fichier téléchargé avec succès!", "success")
-                        except Exception as e:
-                            db.rollback()
-                            logger.error("File upload error: %s", e)
-                            flash("Erreur lors du téléchargement du fichier.", "danger")
-                else:
-                    flash("Type de fichier non autorisé.", "danger")
-            return redirect(url_for("project", pid=pid))
-
-        # read comments and files
-        cur.execute(
-            """
-            SELECT c.id, c.message, c.created_at, u.username
-            FROM comments c
-            JOIN users u ON c.user_id = u.id
-            WHERE c.project_id = %s
-            ORDER BY c.created_at DESC
-            """,
-            (pid,),
-        )
-        comments = cur.fetchall()
-
-        cur.execute(
-            """
-            SELECT f.id, f.filename, f.uploaded_at, u.username, f.filepath
-            FROM files f
-            JOIN users u ON f.uploaded_by = u.id
-            WHERE f.project_id = %s
-            ORDER BY f.uploaded_at DESC
-            """,
-            (pid,),
-        )
-        files = cur.fetchall()
-    except Exception as e:
-        logger.error("Project page error: %s", e)
-        flash("Une erreur est survenue.", "danger")
-        cur.close()
-        return redirect(url_for("dashboard"))
-    finally:
-        cur.close()
-
-    # follow-up queries
-    cur = db.cursor()
-    try:
-        cur.execute("SELECT COUNT(*) FROM likes WHERE project_id = %s", (pid,))
-        lr = cur.fetchone()
-        like_count = lr[0] if lr else 0
-
-        cur.execute("SELECT 1 FROM likes WHERE user_id = %s AND project_id = %s", (uid, pid))
-        user_liked = cur.fetchone() is not None
-
-        cur.execute(
-            """
-            SELECT u.id, u.username, pm.role
-            FROM project_members pm
-            JOIN users u ON pm.user_id = u.id
-            WHERE pm.project_id = %s
-            """,
-            (pid,),
-        )
-        members = cur.fetchall()
-    except Exception as e:
-        logger.error("Project follow-up error: %s", e)
-        flash("Une erreur est survenue.", "danger")
-        cur.close()
-        return redirect(url_for("dashboard"))
-    finally:
-        cur.close()
-
-    return render_template(
-        "project.html",
-        project=project_data,
-        comments=comments,
-        files=files,
-        like_count=like_count,
-        user_liked=user_liked,
-        members=members,
-        is_owner=is_owner,
+    # My projects list (owner view)
+    my_projects = q_all(
+        """
+        SELECT id, name, description, stars_count, members_count, status, updated_at
+        FROM projects
+        WHERE owner_id=%s
+        ORDER BY updated_at DESC
+        LIMIT 10
+        """,
+        (uid,),
     )
 
+    # Recent activity (actor = me)
+    recent_activity = q_all(
+        """
+        SELECT al.created_at, al.action, al.entity_type, al.entity_id, al.project_id,
+               p.name AS project_name
+        FROM activity_log al
+        LEFT JOIN projects p ON p.id = al.project_id
+        WHERE al.actor_id=%s
+        ORDER BY al.created_at DESC
+        LIMIT 8
+        """,
+        (uid,),
+    )
 
-@app.route("/like/<int:pid>", methods=["POST"])
-@login_required
-def like(pid):
-    db = get_db()
-    uid = session.get("user_id")
-    cur = db.cursor()
-    try:
-        cur.execute("SELECT 1 FROM likes WHERE user_id = %s AND project_id = %s", (uid, pid))
-        if cur.fetchone():
-            cur.execute("DELETE FROM likes WHERE user_id = %s AND project_id = %s", (uid, pid))
-            db.commit()
-            flash("Like retiré.", "info")
-        else:
-            cur.execute("INSERT INTO likes (user_id, project_id) VALUES (%s, %s)", (uid, pid))
-            db.commit()
-            flash("Projet liké!", "success")
-    except Exception as e:
-        db.rollback()
-        logger.error("Like error: %s", e)
-        flash("Erreur lors de l'action.", "danger")
-    finally:
-        cur.close()
-    return redirect(url_for("project", pid=pid))
+    # Popular public projects
+    popular = q_all(
+        """
+        SELECT p.id, p.name, p.stars_count, p.members_count,
+               u.username AS owner_username
+        FROM projects p
+        JOIN users u ON u.id = p.owner_id
+        WHERE p.visibility='PUBLIC'
+        ORDER BY p.stars_count DESC, p.views_count DESC
+        LIMIT 3
+        """
+    )
 
+    # Latest comments (global)
+    latest_comments = q_all(
+        """
+        SELECT ic.created_at, ic.body,
+               u.username,
+               i.id AS issue_id, i.title AS issue_title,
+               p.id AS project_id, p.name AS project_name
+        FROM issue_comments ic
+        JOIN users u ON u.id = ic.author_id
+        JOIN issues i ON i.id = ic.issue_id
+        JOIN projects p ON p.id = i.project_id
+        ORDER BY ic.created_at DESC
+        LIMIT 3
+        """
+    )
 
-# ---------------- FILES ----------------
+    return render_template(
+        "dashboard.html",
+        my_projects_count=my_projects_count,
+        stars_received=stars_received,
+        followers_count=followers_count,
+        my_projects=my_projects,
+        recent_activity=recent_activity,
+        popular=popular,
+        latest_comments=latest_comments,
+    )
 
-@app.route("/download/<int:file_id>")
-@login_required
-def download_file(file_id):
-    db = get_db()
-    cur = db.cursor()
-    try:
-        cur.execute("SELECT filename, filepath FROM files WHERE id = %s", (file_id,))
-        row = cur.fetchone()
-        if not row:
-            flash("Fichier introuvable.", "danger")
-            return redirect(url_for("dashboard"))
-        filename, filepath = row[0], row[1]
-        if not os.path.exists(filepath):
-            flash("Le fichier n'existe plus sur le serveur.", "danger")
-            return redirect(url_for("dashboard"))
-        return send_file(filepath, as_attachment=True, download_name=filename)
-    except Exception as e:
-        logger.error("Download error: %s", e)
-        flash("Erreur lors du téléchargement.", "danger")
-        return redirect(url_for("dashboard"))
-    finally:
-        cur.close()
+# ---- EXPLORE ----
+@app.route("/explore")
+def explore():
+    if not login_required():
+        return redirect(url_for("login"))
 
+    q = request.args.get("q", "").strip()
+    lang = request.args.get("lang", "").strip()
 
-@app.route("/delete_file/<int:file_id>", methods=["POST"])
-@login_required
-def delete_file(file_id):
-    db = get_db()
-    cur = db.cursor()
-    uid = session.get("user_id")
-    try:
-        cur.execute(
+    sql = """
+        SELECT p.id, p.name, p.description, p.language, p.stars_count, p.members_count, p.views_count,
+               u.username AS owner_username
+        FROM projects p
+        JOIN users u ON u.id = p.owner_id
+        WHERE p.visibility='PUBLIC'
+    """
+    params = []
+    if q:
+        sql += " AND (p.name LIKE %s OR p.description LIKE %s OR u.username LIKE %s)"
+        like = f"%{q}%"
+        params.extend([like, like, like])
+    if lang:
+        sql += " AND p.language = %s"
+        params.append(lang)
+
+    sql += " ORDER BY p.stars_count DESC, p.views_count DESC LIMIT 30"
+
+    projects = q_all(sql, tuple(params))
+    languages = q_all(
+        "SELECT DISTINCT language FROM projects WHERE language IS NOT NULL AND language<>'' ORDER BY language"
+    )
+
+    return render_template("explore.html", projects=projects, q=q, lang=lang, languages=languages)
+
+# ---- MY PROJECTS ----
+@app.route("/my-projects")
+def my_projects():
+    if not login_required():
+        return redirect(url_for("login"))
+
+    uid = session["user_id"]
+    projects = q_all(
+        """
+        SELECT p.*, (p.owner_id=%s) AS is_owner
+        FROM projects p
+        WHERE p.owner_id=%s
+        ORDER BY p.updated_at DESC
+        """,
+        (uid, uid),
+    )
+    return render_template("my_projects.html", projects=projects)
+
+# ---- CREATE PROJECT ----
+@app.route("/projects/new", methods=["GET", "POST"])
+def project_new():
+    if not login_required():
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        uid = session["user_id"]
+        name = request.form.get("name", "").strip()
+        description = request.form.get("description", "").strip()
+        language = request.form.get("language", "").strip() or None
+        license_name = request.form.get("license", "").strip() or None
+        visibility = request.form.get("visibility", "PUBLIC").strip().upper()
+
+        if visibility not in ("PUBLIC", "PRIVATE"):
+            visibility = "PUBLIC"
+
+        if not name:
+            flash("Project name is required.", "danger")
+            return redirect(url_for("project_new"))
+
+        pid, err = exec_sql(
             """
-            SELECT f.filepath, f.project_id, p.owner_id
-            FROM files f
-            JOIN projects p ON f.project_id = p.id
-            WHERE f.id = %s
+            INSERT INTO projects(owner_id, name, description, language, license, visibility)
+            VALUES (%s,%s,%s,%s,%s,%s)
             """,
-            (file_id,),
+            (uid, name, description, language, license_name, visibility),
         )
-        row = cur.fetchone()
-        if not row:
-            flash("Fichier introuvable.", "danger")
-            return redirect(url_for("dashboard"))
-        filepath, project_id, owner_id = row[0], row[1], row[2]
-        if owner_id != uid:
-            flash("Vous n'avez pas la permission de supprimer ce fichier.", "danger")
-            return redirect(url_for("project", pid=project_id))
-        if os.path.exists(filepath):
-            os.remove(filepath)
-        cur.execute("DELETE FROM files WHERE id = %s", (file_id,))
-        db.commit()
-        flash("Fichier supprimé avec succès.", "success")
-        return redirect(url_for("project", pid=project_id))
-    except Exception as e:
-        db.rollback()
-        logger.error("Delete file error: %s", e)
-        flash("Erreur lors de la suppression.", "danger")
+        if err:
+            flash(f"Create project failed: {err}", "danger")
+            return redirect(url_for("project_new"))
+
+        # Owner membership + log is handled by triggers
+        flash("Project created.", "success")
+        return redirect(url_for("project_view", project_id=pid))
+
+    return render_template("project_new.html")
+
+# ---- VIEW PROJECT ----
+@app.route("/projects/<int:project_id>")
+def project_view(project_id):
+    if not login_required():
+        return redirect(url_for("login"))
+
+    uid = session["user_id"]
+
+    project = q_one(
+        """
+        SELECT p.*, u.username AS owner_username
+        FROM projects p
+        JOIN users u ON u.id = p.owner_id
+        WHERE p.id=%s
+        """,
+        (project_id,),
+    )
+    if not project:
+        flash("Project not found.", "danger")
         return redirect(url_for("dashboard"))
-    finally:
-        cur.close()
 
+    # visibility control: if private, only owner or member can view
+    is_member = q_one(
+        "SELECT 1 AS ok FROM project_members WHERE project_id=%s AND user_id=%s",
+        (project_id, uid),
+    )
+    if project["visibility"] == "PRIVATE" and (not is_member) and project["owner_id"] != uid:
+        flash("This project is private.", "warn")
+        return redirect(url_for("dashboard"))
 
-# ---------------- MEMBERS ----------------
+    # register a view (counter handled by trigger)
+    exec_sql("INSERT INTO views(project_id, viewer_id) VALUES (%s,%s)", (project_id, uid))
 
-@app.route("/project/<int:pid>/add_member", methods=["POST"])
-@login_required
-def add_member(pid):
-    db = get_db()
-    cur = db.cursor()
-    uid = session.get("user_id")
-    try:
-        cur.execute("SELECT owner_id FROM projects WHERE id = %s", (pid,))
-        proj = cur.fetchone()
-        if not proj or proj[0] != uid:
-            flash("Vous n'avez pas la permission d'ajouter des membres.", "danger")
-            return redirect(url_for("project", pid=pid))
-        username = (request.form.get("username") or "").strip()
-        role = request.form.get("role") or "member"
-        cur.execute("SELECT id FROM users WHERE username = %s", (username,))
-        user = cur.fetchone()
-        if not user:
-            flash("Utilisateur introuvable.", "danger")
+    # starred by me?
+    starred = q_one(
+        "SELECT 1 AS ok FROM stars WHERE project_id=%s AND user_id=%s",
+        (project_id, uid),
+    )
+    is_starred = bool(starred)
+
+    # owner follow status (follow owner)
+    if project["owner_id"] == uid:
+        is_following_owner = False
+    else:
+        is_following_owner = bool(
+            q_one(
+                "SELECT 1 AS ok FROM followers WHERE follower_id=%s AND followed_id=%s",
+                (uid, project["owner_id"]),
+            )
+        )
+
+    members = q_all(
+        """
+        SELECT pm.role, u.id, u.username
+        FROM project_members pm
+        JOIN users u ON u.id = pm.user_id
+        WHERE pm.project_id=%s
+        ORDER BY FIELD(pm.role,'OWNER','MAINTAINER','DEVELOPER','VIEWER'), u.username
+        """,
+        (project_id,),
+    )
+
+    files = q_all(
+        """
+        SELECT f.id, f.path, f.updated_at, u.username AS editor
+        FROM files f
+        JOIN users u ON u.id = f.last_editor_id
+        WHERE f.project_id=%s
+        ORDER BY f.updated_at DESC
+        LIMIT 15
+        """,
+        (project_id,),
+    )
+
+    issues = q_all(
+        """
+        SELECT i.id, i.title, i.status, i.priority, i.created_at,
+               u.username AS creator,
+               ua.username AS assignee
+        FROM issues i
+        JOIN users u ON u.id = i.creator_id
+        LEFT JOIN users ua ON ua.id = i.assignee_id
+        WHERE i.project_id=%s
+        ORDER BY i.created_at DESC
+        LIMIT 10
+        """,
+        (project_id,),
+    )
+
+    prs = q_all(
+        """
+        SELECT pr.id, pr.title, pr.status, pr.source_branch, pr.target_branch, pr.created_at,
+               u.username AS author
+        FROM pull_requests pr
+        JOIN users u ON u.id = pr.author_id
+        WHERE pr.project_id=%s
+        ORDER BY pr.created_at DESC
+        LIMIT 10
+        """,
+        (project_id,),
+    )
+
+    can_manage = (project["owner_id"] == uid)
+
+    return render_template(
+        "project_view.html",
+        project=project,
+        is_starred=is_starred,
+        is_following_owner=is_following_owner,
+        members=members,
+        files=files,
+        issues=issues,
+        prs=prs,
+        can_manage=can_manage,
+    )
+
+# ---- STAR / UNSTAR (AJAX) ----
+@app.route("/api/projects/<int:project_id>/star", methods=["POST"])
+def api_star(project_id):
+    if not login_required():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    uid = session["user_id"]
+
+    exists = q_one("SELECT 1 AS ok FROM stars WHERE user_id=%s AND project_id=%s", (uid, project_id))
+    if exists:
+        _, err = exec_sql("DELETE FROM stars WHERE user_id=%s AND project_id=%s", (uid, project_id))
+        if err:
+            return jsonify({"ok": False, "error": err}), 400
+        p = q_one("SELECT stars_count FROM projects WHERE id=%s", (project_id,))
+        return jsonify({"ok": True, "starred": False, "stars_count": p["stars_count"]})
+
+    _, err = exec_sql("INSERT INTO stars(user_id, project_id) VALUES (%s,%s)", (uid, project_id))
+    if err:
+        return jsonify({"ok": False, "error": err}), 400
+    p = q_one("SELECT stars_count FROM projects WHERE id=%s", (project_id,))
+    return jsonify({"ok": True, "starred": True, "stars_count": p["stars_count"]})
+
+# ---- FOLLOW / UNFOLLOW OWNER (AJAX) ----
+@app.route("/api/users/<int:user_id>/follow", methods=["POST"])
+def api_follow(user_id):
+    if not login_required():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    uid = session["user_id"]
+
+    exists = q_one("SELECT 1 AS ok FROM followers WHERE follower_id=%s AND followed_id=%s", (uid, user_id))
+    if exists:
+        _, err = exec_sql("DELETE FROM followers WHERE follower_id=%s AND followed_id=%s", (uid, user_id))
+        if err:
+            return jsonify({"ok": False, "error": err}), 400
+        m = q_one("SELECT followers_count FROM users WHERE id=%s", (user_id,))
+        return jsonify({"ok": True, "following": False, "followers_count": m["followers_count"]})
+
+    _, err = exec_sql("INSERT INTO followers(follower_id, followed_id) VALUES (%s,%s)", (uid, user_id))
+    if err:
+        return jsonify({"ok": False, "error": err}), 400
+    m = q_one("SELECT followers_count FROM users WHERE id=%s", (user_id,))
+    return jsonify({"ok": True, "following": True, "followers_count": m["followers_count"]})
+
+# ---- ARCHIVE / UNARCHIVE ----
+@app.route("/projects/<int:project_id>/archive", methods=["POST"])
+def project_archive(project_id):
+    if not login_required():
+        return redirect(url_for("login"))
+
+    uid = session["user_id"]
+    p = q_one("SELECT id, owner_id, status FROM projects WHERE id=%s", (project_id,))
+    if not p:
+        flash("Project not found.", "danger")
+        return redirect(url_for("dashboard"))
+    if p["owner_id"] != uid:
+        flash("Only the owner can archive this project.", "danger")
+        return redirect(url_for("project_view", project_id=project_id))
+
+    new_status = "ARCHIVED" if p["status"] == "ACTIVE" else "ACTIVE"
+    _, err = exec_sql("UPDATE projects SET status=%s WHERE id=%s", (new_status, project_id))
+    if err:
+        flash(f"Failed: {err}", "danger")
+    else:
+        flash(f"Project set to {new_status}.", "success")
+        log_activity(uid, project_id, "STATUS_CHANGE", "PROJECT", project_id, None)
+
+    return redirect(url_for("project_view", project_id=project_id))
+
+# ---- FILES: create/update a file (simple editor) ----
+@app.route("/projects/<int:project_id>/files/save", methods=["POST"])
+def file_save(project_id):
+    if not login_required():
+        return redirect(url_for("login"))
+    uid = session["user_id"]
+
+    path = request.form.get("path", "").strip()
+    content = request.form.get("content", "")
+
+    if not path:
+        flash("File path is required.", "danger")
+        return redirect(url_for("project_view", project_id=project_id))
+
+    # owner or member required
+    member = q_one("SELECT 1 AS ok FROM project_members WHERE project_id=%s AND user_id=%s", (project_id, uid))
+    if not member:
+        flash("You must be a project member to edit files.", "danger")
+        return redirect(url_for("project_view", project_id=project_id))
+
+    # upsert by unique (project_id, path)
+    existing = q_one("SELECT id FROM files WHERE project_id=%s AND path=%s", (project_id, path))
+    if existing:
+        _, err = exec_sql(
+            "UPDATE files SET content=%s, last_editor_id=%s WHERE id=%s",
+            (content, uid, existing["id"]),
+        )
+        if err:
+            flash(f"Save failed: {err}", "danger")
         else:
-            cur.execute("SELECT 1 FROM project_members WHERE project_id = %s AND user_id = %s", (pid, user[0]))
-            if cur.fetchone():
-                flash("Cet utilisateur est déjà membre du projet.", "warning")
-            else:
-                cur.execute("INSERT INTO project_members (project_id, user_id, role) VALUES (%s, %s, %s)", (pid, user[0], role))
-                db.commit()
-                flash(f"Membre {username} ajouté avec succès!", "success")
-    except Exception as e:
-        db.rollback()
-        logger.error("Add member error: %s", e)
-        flash("Une erreur est survenue lors de l'ajout du membre.", "danger")
-    finally:
-        cur.close()
-    return redirect(url_for("project", pid=pid))
-
-
-@app.route("/project/<int:pid>/remove_member/<int:member_id>", methods=["POST"])
-@login_required
-def remove_member(pid, member_id):
-    db = get_db()
-    cur = db.cursor()
-    uid = session.get("user_id")
-    try:
-        cur.execute("SELECT owner_id FROM projects WHERE id = %s", (pid,))
-        proj = cur.fetchone()
-        if not proj or proj[0] != uid:
-            flash("Vous n'avez pas la permission de retirer des membres.", "danger")
-            return redirect(url_for("project", pid=pid))
-        if member_id == uid:
-            flash("Vous ne pouvez pas vous retirer vous-même du projet.", "danger")
+            flash("File updated.", "success")
+            log_activity(uid, project_id, "UPDATE", "FILE", existing["id"], None)
+    else:
+        fid, err = exec_sql(
+            "INSERT INTO files(project_id, path, content, last_editor_id) VALUES (%s,%s,%s,%s)",
+            (project_id, path, content, uid),
+        )
+        if err:
+            flash(f"Save failed: {err}", "danger")
         else:
-            cur.execute("DELETE FROM project_members WHERE project_id = %s AND user_id = %s", (pid, member_id))
-            db.commit()
-            flash("Membre retiré du projet.", "success")
-    except Exception as e:
-        db.rollback()
-        logger.error("Remove member error: %s", e)
-        flash("Erreur lors du retrait du membre.", "danger")
-    finally:
-        cur.close()
-    return redirect(url_for("project", pid=pid))
+            flash("File created.", "success")
+            log_activity(uid, project_id, "CREATE", "FILE", fid, None)
 
+    return redirect(url_for("project_view", project_id=project_id))
 
-# ---------------- PROFILE ----------------
+# ---- ISSUES: create ----
+@app.route("/projects/<int:project_id>/issues/new", methods=["POST"])
+def issue_new(project_id):
+    if not login_required():
+        return redirect(url_for("login"))
+    uid = session["user_id"]
 
-@app.route("/profile")
-@login_required
+    title = request.form.get("title", "").strip()
+    description = request.form.get("description", "").strip()
+    priority = request.form.get("priority", "MEDIUM").strip().upper()
+    assignee_id = request.form.get("assignee_id", "").strip()
+
+    if not title:
+        flash("Issue title is required.", "danger")
+        return redirect(url_for("project_view", project_id=project_id))
+
+    assignee_val = int(assignee_id) if assignee_id.isdigit() else None
+
+    _, err = exec_sql(
+        """
+        INSERT INTO issues(project_id, creator_id, assignee_id, title, description, priority)
+        VALUES (%s,%s,%s,%s,%s,%s)
+        """,
+        (project_id, uid, assignee_val, title, description, priority),
+    )
+    if err:
+        flash(f"Issue create failed: {err}", "danger")
+    else:
+        flash("Issue created.", "success")
+
+    return redirect(url_for("project_view", project_id=project_id))
+
+# ---- PR: create ----
+@app.route("/projects/<int:project_id>/prs/new", methods=["POST"])
+def pr_new(project_id):
+    if not login_required():
+        return redirect(url_for("login"))
+    uid = session["user_id"]
+
+    title = request.form.get("title", "").strip()
+    description = request.form.get("description", "").strip()
+    source_branch = request.form.get("source_branch", "").strip()
+    target_branch = request.form.get("target_branch", "main").strip()
+
+    if not title or not source_branch:
+        flash("PR title and source branch are required.", "danger")
+        return redirect(url_for("project_view", project_id=project_id))
+
+    _, err = exec_sql(
+        """
+        INSERT INTO pull_requests(project_id, author_id, title, description, source_branch, target_branch, status)
+        VALUES (%s,%s,%s,%s,%s,%s,'IN_REVIEW')
+        """,
+        (project_id, uid, title, description, source_branch, target_branch),
+    )
+    if err:
+        flash(f"PR create failed: {err}", "danger")
+    else:
+        flash("Pull request created.", "success")
+
+    return redirect(url_for("project_view", project_id=project_id))
+
+# ---- PROFILE ----
+@app.route("/profile", methods=["GET", "POST"])
 def profile():
-    """
-    Templates expect `user` as a tuple where:
-      user[0] = username (str)
-      user[1] = email (str)
-      user[2] = created_at (datetime)  <-- template uses .strftime on this element
-      user[3] = id (int)
-    """
-    db = get_db()
-    cur = db.cursor()
-    uid = session.get("user_id")
+    if not login_required():
+        return redirect(url_for("login"))
+    uid = session["user_id"]
 
-    user_row = None
-    project_count = comment_count = like_count = 0
+    if request.method == "POST":
+        bio = request.form.get("bio", "").strip()
+        username = request.form.get("username", "").strip()
 
-    try:
-        cur.execute("SELECT username, email, created_at, id FROM users WHERE id = %s", (uid,))
-        user_row = cur.fetchone()
-        if not user_row:
-            flash("Utilisateur introuvable.", "danger")
-            return redirect(url_for("dashboard"))
+        # update username + bio (username has checks)
+        _, err = exec_sql("UPDATE users SET username=%s, bio=%s WHERE id=%s", (username, bio, uid))
+        if err:
+            flash(f"Update failed: {err}", "danger")
+        else:
+            flash("Profile updated.", "success")
+            log_activity(uid, None, "UPDATE", "USER", uid, None)
 
-        cur.execute("SELECT COUNT(*) FROM projects WHERE owner_id = %s", (uid,))
-        r = cur.fetchone()
-        project_count = r[0] if r else 0
+        return redirect(url_for("profile"))
 
-        cur.execute("SELECT COUNT(*) FROM comments WHERE user_id = %s", (uid,))
-        r = cur.fetchone()
-        comment_count = r[0] if r else 0
-
-        cur.execute("SELECT COUNT(*) FROM likes WHERE user_id = %s", (uid,))
-        r = cur.fetchone()
-        like_count = r[0] if r else 0
-    except Exception as e:
-        logger.error("Profile error: %s", e)
-        flash("Erreur lors du chargement du profil.", "danger")
-        return redirect(url_for("dashboard"))
-    finally:
-        cur.close()
-
-    return render_template("profile.html", user=user_row, project_count=project_count, comment_count=comment_count, like_count=like_count)
-
-
-# ---------------- ERRORS & CONTEXT ----------------
-
-@app.errorhandler(404)
-def not_found(e):
-    return render_template("404.html"), 404
-
-
-@app.errorhandler(403)
-def forbidden(e):
-    return render_template("403.html"), 403
-
-
-@app.errorhandler(500)
-def server_error(e):
-    logger.error("Server error: %s", e)
-    return render_template("500.html"), 500
-
-
-@app.errorhandler(413)
-def too_large(e):
-    flash("Le fichier est trop volumineux. Taille maximale: 10 MB", "danger")
-    return redirect(request.referrer or url_for("dashboard"))
-
-
-@app.context_processor
-def inject_user():
-    return {"current_user": get_current_user()}
-
+    user = q_one("SELECT id, username, email, bio, followers_count, following_count FROM users WHERE id=%s", (uid,))
+    return render_template("profile.html", user=user)
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
-# ...existing code...
+    app.run(debug=True)

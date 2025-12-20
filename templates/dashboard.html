@@ -1,192 +1,165 @@
 {% extends "base.html" %}
-
-{% block title %}Tableau de bord - CodeShare{% endblock %}
-
-{% block extra_css %}
-<style>
-.dashboard-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-}
-.dashboard-header h1 {
-    font-size: 2rem;
-    color: var(--primary);
-}
-
-.tabs {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 30px;
-    border-bottom: 2px solid #e1e4e8;
-}
-.tab {
-    padding: 12px 20px;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    cursor: pointer;
-    font-size: 1rem;
-    font-weight: 500;
-    color: var(--gray);
-}
-.tab.active {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
-}
-
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-
-.projects-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 20px;
-}
-
-.project-card {
-    background: white;
-    border-radius: 12px;
-    padding: 24px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    border: 1px solid #e1e4e8;
-    cursor: pointer;
-    transition: 0.3s;
-}
-.project-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
-}
-
-.project-title {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: var(--accent);
-}
-
-.project-description {
-    margin: 10px 0;
-}
-
-.modal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    justify-content: center;
-    align-items: center;
-}
-
-.modal.active { display: flex; }
-
-.modal-content {
-    background: white;
-    padding: 30px;
-    border-radius: 12px;
-    width: 90%;
-    max-width: 500px;
-}
-</style>
-{% endblock %}
-
 {% block content %}
 
-<div class="dashboard-header">
-    <h1>📁 Mes Projets</h1>
-    <button class="btn btn-primary" onclick="openModal()">+ Nouveau Projet</button>
-</div>
+<section class="page-head">
+  <div>
+    <h1>Welcome, {{ me.username }}!</h1>
+    <p class="muted">Manage your projects, activity and growth from your dashboard.</p>
+  </div>
+</section>
 
-<div class="tabs">
-    <button class="tab active" onclick="switchTab('all', this)">🌍 Tous les projets</button>
-    <button class="tab" onclick="switchTab('mine', this)">👤 Mes projets</button>
-</div>
-
-<!-- ALL PROJECTS -->
-<div id="all-projects" class="tab-content active">
-    {% if projects %}
-    <div class="projects-grid">
-        {% for p in projects %}
-        <div class="project-card" data-href="{{ url_for('project', pid=p[0]) }}">
-            <div class="project-title">{{ p[1] }}</div>
-            <div class="project-description">{{ p[2] or "Aucune description" }}</div>
-            <small>👤 {{ p[4] }}</small><br>
-            <small>❤️ {{ p[5] }} 💬 {{ p[6] }} 📅 {{ p[3].strftime('%d/%m/%Y') }}</small>
+<section class="grid top-cards">
+  <div class="card profile-card">
+    <div class="profile-row">
+      <div class="avatar xl">{{ me.username[:1]|upper }}</div>
+      <div class="profile-meta">
+        <div class="profile-username">{{ me.username }}</div>
+        <div class="profile-email">{{ me.email }}</div>
+        <div class="profile-actions">
+          <a class="btn btn-primary" href="{{ url_for('profile') }}">Edit Profile</a>
+          <a class="btn btn-danger" href="{{ url_for('logout') }}">Logout</a>
         </div>
-        {% endfor %}
+      </div>
     </div>
-    {% else %}
-        <p>Aucun projet disponible.</p>
-    {% endif %}
-</div>
+  </div>
 
-<!-- MY PROJECTS -->
-<div id="my-projects" class="tab-content">
-    {% if my_projects %}
-    <div class="projects-grid">
-        {% for p in my_projects %}
-        <div class="project-card" data-href="{{ url_for('project', pid=p[0]) }}">
-            <div class="project-title">{{ p[1] }}</div>
-            <div class="project-description">{{ p[2] or "Aucune description" }}</div>
-            <small>👥 {{ p[4] }} membres | 📅 {{ p[3].strftime('%d/%m/%Y') }}</small>
+  <div class="card stat">
+    <div class="stat-icon folder"></div>
+    <div class="stat-value">{{ my_projects_count }}</div>
+    <div class="stat-label">Projects</div>
+  </div>
+
+  <div class="card stat">
+    <div class="stat-icon star"></div>
+    <div class="stat-value">{{ stars_received }}</div>
+    <div class="stat-label">Stars Received</div>
+  </div>
+
+  <div class="card stat">
+    <div class="stat-icon users"></div>
+    <div class="stat-value">{{ followers_count }}</div>
+    <div class="stat-label">Followers</div>
+  </div>
+</section>
+
+<section class="grid main-grid">
+  <div class="card">
+    <div class="card-head">
+      <h2>My Projects</h2>
+      <a class="btn btn-primary" href="{{ url_for('project_new') }}">Create New Project</a>
+    </div>
+
+    <div class="list">
+      {% for p in my_projects %}
+        <a class="list-item" href="{{ url_for('project_view', project_id=p.id) }}">
+          <div class="item-left">
+            <div class="file-ico"></div>
+            <div>
+              <div class="item-title">{{ p.name }}</div>
+              <div class="item-sub muted">
+                {{ (p.description or 'No description yet.')[:80] }}
+                {% if p.status == 'ARCHIVED' %}<span class="badge warn">Archived</span>{% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="item-right">
+            <div class="pill">
+              <span class="mini star"></span> {{ p.stars_count }}
+            </div>
+            <div class="pill">
+              <span class="mini users"></span> {{ p.members_count }}
+            </div>
+            <div class="pill muted">Updated {{ p.updated_at }}</div>
+          </div>
+        </a>
+      {% else %}
+        <div class="empty muted">No projects yet — create your first one.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>Recent Activities</h2>
+      <div class="muted">Latest actions by you</div>
+    </div>
+
+    <div class="activity">
+      {% for a in recent_activity %}
+        <div class="activity-row">
+          <div class="activity-dot"></div>
+          <div class="activity-text">
+            <div class="activity-main">
+              <span class="mono">{{ a.action }}</span>
+              <span class="muted">•</span>
+              {% if a.project_name %}
+                <span>in</span> <span class="linkish">{{ a.project_name }}</span>
+              {% else %}
+                <span class="muted">Account</span>
+              {% endif %}
+            </div>
+            <div class="activity-time muted">{{ a.created_at }}</div>
+          </div>
         </div>
-        {% endfor %}
+      {% else %}
+        <div class="empty muted">No recent activity.</div>
+      {% endfor %}
     </div>
-    {% else %}
-        <p>Vous n'avez pas encore de projet.</p>
-    {% endif %}
-</div>
+  </div>
+</section>
 
-<!-- MODAL -->
-<div id="newProjectModal" class="modal">
-    <div class="modal-content">
-        <h2>Créer un projet</h2>
-        <form method="POST" action="{{ url_for('dashboard') }}">
-            <input type="text" name="title" placeholder="Titre du projet" required><br><br>
-            <textarea name="description" placeholder="Description"></textarea><br><br>
-            <button type="submit">Créer</button>
-            <button type="button" onclick="closeModal()">Annuler</button>
-        </form>
+<section class="grid bottom-grid">
+  <div class="card">
+    <div class="card-head">
+      <h2>Popular Projects</h2>
+      <div class="muted">Trending in public</div>
     </div>
-</div>
 
-<!-- ...existing code... -->
+    <div class="list">
+      {% for p in popular %}
+        <a class="list-item" href="{{ url_for('project_view', project_id=p.id) }}">
+          <div class="item-left">
+            <div class="file-ico"></div>
+            <div>
+              <div class="item-title">{{ p.name }}</div>
+              <div class="item-sub muted">by {{ p.owner_username }}</div>
+            </div>
+          </div>
+          <div class="item-right">
+            <div class="pill"><span class="mini star"></span> {{ p.stars_count }}</div>
+            <div class="pill"><span class="mini users"></span> {{ p.members_count }}</div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
 
-<script>
-function switchTab(tab, btn) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    btn.classList.add('active');
+  <div class="card">
+    <div class="card-head">
+      <h2>Latest Comments</h2>
+      <div class="muted">From issues across CodeShare</div>
+    </div>
 
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
-    if (tab === 'all') {
-        document.getElementById('all-projects').classList.add('active');
-    } else {
-        document.getElementById('my-projects').classList.add('active');
-    }
-}
-
-function openModal() {
-    document.getElementById('newProjectModal').classList.add('active');
-}
-
-function closeModal() {
-    document.getElementById('newProjectModal').classList.remove('active');
-}
-
-document.getElementById('newProjectModal').addEventListener('click', function(e) {
-    if (e.target === this) closeModal();
-});
-
-// Single, correct event listener for project cards
-document.querySelectorAll('.project-card[data-href]').forEach(card => {
-    card.addEventListener('click', function() {
-        const href = this.getAttribute('data-href');
-        if (href) {
-            window.location.href = href;
-        }
-    });
-});
-</script>
+    <div class="comments">
+      {% for c in latest_comments %}
+        <div class="comment-row">
+          <div class="avatar sm">{{ c.username[:1]|upper }}</div>
+          <div>
+            <div class="comment-title">
+              <span class="who">{{ c.username }}</span>
+              <span class="muted">on</span>
+              <a class="linkish" href="{{ url_for('project_view', project_id=c.project_id) }}">{{ c.project_name }}</a>
+            </div>
+            <div class="comment-body muted">“{{ c.body[:120] }}”</div>
+            <div class="comment-time muted">{{ c.created_at }}</div>
+          </div>
+        </div>
+      {% else %}
+        <div class="empty muted">No comments yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
 
 {% endblock %}
