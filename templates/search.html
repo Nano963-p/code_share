@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Search · CodeShare{% endblock %}
+
+{% block content %}
+<h2>Search results for "{{ query }}"</h2>
+
+{% if results %}
+  <div class="project-grid">
+    {% for p in results %}
+      <div class="project-card">
+        <h3>{{ p.title }}</h3>
+        <p>{{ p.description or "No description" }}</p>
+
+        <div class="meta">
+          <span>👤 {{ p.owner }}</span>
+          <span>⭐ {{ p.stars }}</span>
+        </div>
+
+        <a class="btn secondary"
+           href="{{ url_for('project', pid=p.id) }}">
+          Open
+        </a>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="pagination">
+    {% if page|default(1) > 1 %}
+      <a href="{{ url_for('search', q=query, page=page-1) }}">← Prev</a>
+    {% endif %}
+    {% if has_next|default(false) %}
+      <a href="{{ url_for('search', q=query, page=page+1) }}">Next →</a>
+    {% endif %}
+  </div>
+{% else %}
+  <p>No results found.</p>
+{% endif %}
+{% endblock %}

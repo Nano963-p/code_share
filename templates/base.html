@@ -1,66 +1,67 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ title or "CodeShare" }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
-  <script defer src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>{% block title %}CodeShare{% endblock %}</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
 </head>
-<body class="galaxy">
-  <header class="topbar">
-    <div class="brand">
-      <div class="logo-orbit"></div>
-      <div class="brand-text">
-        <div class="brand-name">CodeShare</div>
-        <div class="brand-sub">Galaxy Workspace</div>
-      </div>
-    </div>
+
+<body class="{% if request.endpoint in ['login','signup'] %}auth-body{% endif %}">
+
+{% if request.endpoint not in ['login','signup'] %}
+<header class="topbar panel glass">
+  <div class="container topbar-inner">
+
+    <a class="brand" href="{{ url_for('dashboard') }}">
+      <img class="brand-logo" src="{{ url_for('static', filename='img/saturn.png') }}" alt="Saturn">
+      <span class="brand-name">CodeShare</span>
+    </a>
 
     <nav class="nav">
-      <a class="nav-link {{ 'active' if path.startswith('/dashboard') else '' }}" href="{{ url_for('dashboard') }}">Home</a>
-      <a class="nav-link {{ 'active' if path.startswith('/explore') else '' }}" href="{{ url_for('explore') }}">Explore</a>
-      <a class="nav-link {{ 'active' if path.startswith('/my-projects') else '' }}" href="{{ url_for('my_projects') }}">My Projects</a>
+      <a class="nav-link" href="{{ url_for('dashboard') }}">Home</a>
+      <a class="nav-link" href="{{ url_for('dashboard') }}#popular">Explore</a>
+      <a class="nav-link" href="{{ url_for('dashboard') }}#my-projects">My Projects</a>
     </nav>
 
-    <div class="right">
-      <form class="search" action="{{ url_for('explore') }}" method="get">
-        <input name="q" value="{{ request.args.get('q','') }}" placeholder="Search..." />
-        <button type="submit" class="btn btn-ghost">Go</button>
+    <div class="topbar-right">
+      <form class="search" method="GET" action="{{ url_for('search') }}">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" name="q" placeholder="Search projects..." value="{{ request.args.get('q','') }}">
       </form>
 
-      {% if me %}
-        <div class="userpill">
-          <div class="avatar">{{ me.username[:1]|upper }}</div>
-          <div class="user-meta">
-            <div class="user-name">{{ me.username }}</div>
-            <div class="user-email">{{ me.email }}</div>
-          </div>
-          <div class="user-actions">
-            <a class="btn btn-ghost" href="{{ url_for('profile') }}">Profile</a>
-            <a class="btn btn-danger" href="{{ url_for('logout') }}">Logout</a>
-          </div>
-        </div>
-      {% endif %}
-    </div>
-  </header>
+      <a class="user-chip" href="{{ url_for('profile') }}">
+        <span class="avatar">{{ (user.username[0] if user else 'U')|upper }}</span>
+        <span class="user-name">{{ user.username if user else 'User' }}</span>
+      </a>
 
-  <main class="container">
+      <a class="btn btn-ghost" href="{{ url_for('logout') }}">Logout</a>
+    </div>
+
+  </div>
+</header>
+{% endif %}
+
+<main class="container">
+  <div class="{% if request.endpoint not in ['login','signup'] %}dashboard-shell{% endif %}">
+
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        <div class="toast-stack">
-          {% for cat, msg in messages %}
-            <div class="toast {{ cat }}">{{ msg }}</div>
+        <div class="flash">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
           {% endfor %}
         </div>
       {% endif %}
     {% endwith %}
 
     {% block content %}{% endblock %}
-  </main>
+  </div>
+</main>
 
-  <footer class="footer">
-    <div>CodeShare © {{ 2025 }}</div>
-  </footer>
+<script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
 </body>
 </html>

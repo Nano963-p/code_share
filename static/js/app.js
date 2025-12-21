@@ -1,47 +1,39 @@
-async function postJSON(url) {
-  const res = await fetch(url, { method: "POST", headers: { "X-Requested-With": "fetch" } });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Request failed");
-  return data;
+function qs(id){ return document.getElementById(id); }
+
+function openOverlay(){
+  const ov = qs("modal-overlay");
+  if (ov) ov.classList.remove("hidden");
 }
 
-function toast(msg) {
-  // Simple client-side toast (optional)
-  const stack = document.querySelector(".toast-stack") || null;
-  if (!stack) return;
-  const el = document.createElement("div");
-  el.className = "toast info";
-  el.textContent = msg;
-  stack.prepend(el);
-  setTimeout(() => el.remove(), 3500);
+function closeOverlay(){
+  const ov = qs("modal-overlay");
+  if (ov) ov.classList.add("hidden");
 }
 
-document.addEventListener("click", async (e) => {
-  const starBtn = e.target.closest("[data-star-btn]");
-  if (starBtn) {
-    const pid = starBtn.getAttribute("data-project-id");
-    try {
-      const data = await postJSON(`/api/projects/${pid}/star`);
-      const text = starBtn.querySelector("[data-star-text]");
-      const count = starBtn.querySelector("[data-stars-count]");
-      if (text) text.textContent = data.starred ? "Starred" : "Star";
-      if (count) count.textContent = `(${data.stars_count})`;
-      toast(data.starred ? "Project starred" : "Star removed");
-    } catch (err) {
-      alert(err.message);
-    }
-  }
+function openCreateProject(){
+  const m = qs("create-project-modal");
+  if (!m) return;
+  openOverlay();
+  m.classList.remove("hidden");
 
-  const followBtn = e.target.closest("[data-follow-btn]");
-  if (followBtn) {
-    const uid = followBtn.getAttribute("data-user-id");
-    try {
-      const data = await postJSON(`/api/users/${uid}/follow`);
-      const text = followBtn.querySelector("[data-follow-text]");
-      if (text) text.textContent = data.following ? "Following" : "Follow";
-      toast(data.following ? "Following user" : "Unfollowed user");
-    } catch (err) {
-      alert(err.message);
-    }
-  }
+  // focus first input (title)
+  const inp = m.querySelector('input[name="title"]');
+  if (inp) setTimeout(() => inp.focus(), 50);
+}
+
+function closeAllModals(){
+  const m = qs("create-project-modal");
+  if (m) m.classList.add("hidden");
+  closeOverlay();
+}
+
+function toggleBox(id){
+  const el = qs(id);
+  if (!el) return;
+  el.classList.toggle("hidden");
+}
+
+// ESC closes modals
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeAllModals();
 });

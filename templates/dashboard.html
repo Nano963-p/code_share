@@ -1,165 +1,202 @@
 {% extends "base.html" %}
+{% block title %}Dashboard · CodeShare{% endblock %}
+
 {% block content %}
+<section class="hero">
+  <div class="panel hero-card">
+    <div class="hero-left">
+      <h1>Welcome, {{ user.username }}!</h1>
+      <div class="hero-sub">
+        <div class="pill">
+          <i class="fa-solid fa-envelope"></i>
+          <span>{{ user.email }}</span>
+        </div>
 
-<section class="page-head">
-  <div>
-    <h1>Welcome, {{ me.username }}!</h1>
-    <p class="muted">Manage your projects, activity and growth from your dashboard.</p>
-  </div>
-</section>
-
-<section class="grid top-cards">
-  <div class="card profile-card">
-    <div class="profile-row">
-      <div class="avatar xl">{{ me.username[:1]|upper }}</div>
-      <div class="profile-meta">
-        <div class="profile-username">{{ me.username }}</div>
-        <div class="profile-email">{{ me.email }}</div>
-        <div class="profile-actions">
-          <a class="btn btn-primary" href="{{ url_for('profile') }}">Edit Profile</a>
-          <a class="btn btn-danger" href="{{ url_for('logout') }}">Logout</a>
+        <div class="hero-actions">
+          <a class="btn btn-secondary" href="{{ url_for('profile') }}">
+            Edit Profile
+          </a>
+          <a class="btn btn-ghost" href="{{ url_for('logout') }}">
+            Logout
+          </a>
         </div>
       </div>
     </div>
-  </div>
 
-  <div class="card stat">
-    <div class="stat-icon folder"></div>
-    <div class="stat-value">{{ my_projects_count }}</div>
-    <div class="stat-label">Projects</div>
-  </div>
+    <div class="hero-stats">
+      <div class="stat-card stat-purple">
+        <div class="stat-ico"><i class="fa-solid fa-folder"></i></div>
+        <div class="stat-num">{{ stats_projects }}</div>
+        <div class="stat-label">Projects</div>
+      </div>
 
-  <div class="card stat">
-    <div class="stat-icon star"></div>
-    <div class="stat-value">{{ stars_received }}</div>
-    <div class="stat-label">Stars Received</div>
-  </div>
+      <div class="stat-card stat-blue">
+        <div class="stat-ico"><i class="fa-solid fa-star"></i></div>
+        <div class="stat-num">{{ stats_stars }}</div>
+        <div class="stat-label">Stars Received</div>
+      </div>
 
-  <div class="card stat">
-    <div class="stat-icon users"></div>
-    <div class="stat-value">{{ followers_count }}</div>
-    <div class="stat-label">Followers</div>
+      <div class="stat-card stat-pink">
+        <div class="stat-ico"><i class="fa-solid fa-user-group"></i></div>
+        <div class="stat-num">{{ stats_followers }}</div>
+        <div class="stat-label">Followers</div>
+      </div>
+    </div>
   </div>
 </section>
 
-<section class="grid main-grid">
-  <div class="card">
-    <div class="card-head">
+<section class="grid-2">
+  <div id="my-projects" class="panel">
+    <div class="panel-head">
       <h2>My Projects</h2>
-      <a class="btn btn-primary" href="{{ url_for('project_new') }}">Create New Project</a>
+      <button class="btn btn-primary" type="button" onclick="openCreateProject()">
+        Create New Project <i class="fa-solid fa-arrow-right"></i>
+      </button>
     </div>
 
-    <div class="list">
-      {% for p in my_projects %}
-        <a class="list-item" href="{{ url_for('project_view', project_id=p.id) }}">
-          <div class="item-left">
-            <div class="file-ico"></div>
-            <div>
-              <div class="item-title">{{ p.name }}</div>
-              <div class="item-sub muted">
-                {{ (p.description or 'No description yet.')[:80] }}
-                {% if p.status == 'ARCHIVED' %}<span class="badge warn">Archived</span>{% endif %}
+    {% if my_projects and my_projects|length > 0 %}
+      <div class="list">
+        {% for p in my_projects %}
+          <a class="row" href="{{ url_for('project', pid=p.id) }}">
+            <div class="row-left">
+              <div class="row-icon"><i class="fa-solid fa-folder"></i></div>
+              <div>
+                <div class="row-title">{{ p.title }}</div>
+                <div class="row-sub">
+                  {% if p.status %}
+                    <span class="badge badge-muted">{{ p.status|capitalize }}</span>
+                  {% endif %}
+                  <span class="muted">• {{ p.created_at }}</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="item-right">
-            <div class="pill">
-              <span class="mini star"></span> {{ p.stars_count }}
+            <div class="row-right">
+              <span class="meta"><i class="fa-solid fa-star"></i> {{ p.stars }}</span>
+              <span class="meta"><i class="fa-solid fa-user-group"></i> {{ p.members }}</span>
+              <span class="meta"><i class="fa-solid fa-chevron-right"></i></span>
             </div>
-            <div class="pill">
-              <span class="mini users"></span> {{ p.members_count }}
-            </div>
-            <div class="pill muted">Updated {{ p.updated_at }}</div>
-          </div>
-        </a>
-      {% else %}
-        <div class="empty muted">No projects yet — create your first one.</div>
-      {% endfor %}
-    </div>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">No projects yet.</div>
+    {% endif %}
   </div>
 
-  <div class="card">
-    <div class="card-head">
+  <div class="panel">
+    <div class="panel-head">
       <h2>Recent Activities</h2>
-      <div class="muted">Latest actions by you</div>
     </div>
 
-    <div class="activity">
-      {% for a in recent_activity %}
-        <div class="activity-row">
-          <div class="activity-dot"></div>
-          <div class="activity-text">
-            <div class="activity-main">
-              <span class="mono">{{ a.action }}</span>
-              <span class="muted">•</span>
-              {% if a.project_name %}
-                <span>in</span> <span class="linkish">{{ a.project_name }}</span>
-              {% else %}
-                <span class="muted">Account</span>
-              {% endif %}
+    {% if activities and activities|length > 0 %}
+      <div class="activity">
+        {% for a in activities %}
+          <div class="activity-item">
+            <div class="dot"></div>
+            <div class="activity-body">
+              <div class="activity-line">
+                <strong>{{ a.actor }}</strong>
+                <span class="muted"> {{ a.action.replace('_',' ') }}</span>
+                <a class="link" href="{{ url_for('project', pid=a.project_id) }}">{{ a.project_title }}</a>
+              </div>
+              <div class="muted small">{{ a.created_at }}</div>
             </div>
-            <div class="activity-time muted">{{ a.created_at }}</div>
           </div>
-        </div>
-      {% else %}
-        <div class="empty muted">No recent activity.</div>
-      {% endfor %}
-    </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">No activity.</div>
+    {% endif %}
   </div>
 </section>
 
-<section class="grid bottom-grid">
-  <div class="card">
-    <div class="card-head">
+<section class="grid-2">
+  <div id="popular" class="panel">
+    <div class="panel-head">
       <h2>Popular Projects</h2>
-      <div class="muted">Trending in public</div>
     </div>
 
-    <div class="list">
-      {% for p in popular %}
-        <a class="list-item" href="{{ url_for('project_view', project_id=p.id) }}">
-          <div class="item-left">
-            <div class="file-ico"></div>
-            <div>
-              <div class="item-title">{{ p.name }}</div>
-              <div class="item-sub muted">by {{ p.owner_username }}</div>
+    {% if popular_projects and popular_projects|length > 0 %}
+      <div class="list">
+        {% for p in popular_projects %}
+          <a class="row" href="{{ url_for('project', pid=p.id) }}">
+            <div class="row-left">
+              <div class="row-icon"><i class="fa-solid fa-folder-open"></i></div>
+              <div>
+                <div class="row-title">{{ p.title }}</div>
+                <div class="row-sub">
+                  <span class="meta"><i class="fa-solid fa-star"></i> {{ p.stars }}</span>
+                  <span class="meta"><i class="fa-solid fa-user-group"></i> {{ p.members }} members</span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="item-right">
-            <div class="pill"><span class="mini star"></span> {{ p.stars_count }}</div>
-            <div class="pill"><span class="mini users"></span> {{ p.members_count }}</div>
-          </div>
-        </a>
-      {% endfor %}
-    </div>
+            <div class="row-right">
+              <span class="meta"><i class="fa-solid fa-chevron-right"></i></span>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">No public projects yet.</div>
+    {% endif %}
   </div>
 
-  <div class="card">
-    <div class="card-head">
+  <div class="panel">
+    <div class="panel-head">
       <h2>Latest Comments</h2>
-      <div class="muted">From issues across CodeShare</div>
     </div>
 
-    <div class="comments">
-      {% for c in latest_comments %}
-        <div class="comment-row">
-          <div class="avatar sm">{{ c.username[:1]|upper }}</div>
-          <div>
-            <div class="comment-title">
-              <span class="who">{{ c.username }}</span>
-              <span class="muted">on</span>
-              <a class="linkish" href="{{ url_for('project_view', project_id=c.project_id) }}">{{ c.project_name }}</a>
+    {% if latest_comments and latest_comments|length > 0 %}
+      <div class="comments">
+        {% for c in latest_comments %}
+          <div class="comment">
+            <div class="comment-ava">{{ c.author[0]|upper }}</div>
+            <div class="comment-body">
+              <div class="comment-top">
+                <strong>{{ c.author }}</strong>
+                <span class="muted small">• {{ c.created_at }}</span>
+              </div>
+              <div class="comment-text">“{{ c.message }}”</div>
+              <a class="link small" href="{{ url_for('project', pid=c.project_id) }}">{{ c.project_title }}</a>
             </div>
-            <div class="comment-body muted">“{{ c.body[:120] }}”</div>
-            <div class="comment-time muted">{{ c.created_at }}</div>
           </div>
-        </div>
-      {% else %}
-        <div class="empty muted">No comments yet.</div>
-      {% endfor %}
-    </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">No comments.</div>
+    {% endif %}
   </div>
 </section>
 
+{# Create Project Modal (dashboard only) #}
+<div id="create-project-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Create Project">
+  <div class="modal-head">
+    <div>
+      <div class="modal-title">Create project</div>
+      <div class="modal-sub muted">Start a new repository-like space.</div>
+    </div>
+    <button class="icon-btn" onclick="closeAllModals()" aria-label="Close">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </div>
+
+  <form class="modal-form" method="POST" action="{{ url_for('create_project') }}">
+    <label>Title</label>
+    <input name="title" type="text" minlength="3" required placeholder="e.g. Awesome App">
+
+    <label>Description</label>
+    <textarea name="description" rows="4" placeholder="What is this project about?"></textarea>
+
+    <label class="check">
+      <input type="checkbox" name="is_private" value="1">
+      <span>Private project</span>
+    </label>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeAllModals()">Cancel</button>
+      <button type="submit" class="btn btn-primary">Create</button>
+    </div>
+  </form>
+</div>
 {% endblock %}

@@ -1,31 +1,35 @@
 {% extends "base.html" %}
-{% block content %}
+{% block title %}Profile · CodeShare{% endblock %}
 
-<section class="page-head">
-  <div>
-    <h1>Profile</h1>
-    <p class="muted">Update your public information.</p>
+{% block content %}
+<section class="panel">
+  <div class="profile-head">
+    <div class="profile-ava">{{ user.username[0]|upper }}</div>
+    <div>
+      <h1 class="profile-name">{{ user.username }}</h1>
+      <div class="muted">{{ user.email }}</div>
+      <div class="muted small">Joined: {{ user.created_at }}</div>
+    </div>
   </div>
 </section>
 
-<div class="card">
-  <form method="post" class="form">
-    <label>Username</label>
-    <input name="username" value="{{ user.username }}" required>
+<section class="grid-3">
+  <div class="panel stat-mini">
+    <div class="mini-ico"><i class="fa-solid fa-folder"></i></div>
+    <div class="mini-num">{{ project_count }}</div>
+    <div class="mini-label">Owned Projects</div>
+  </div>
 
-    <label>Email</label>
-    <input value="{{ user.email }}" disabled>
+  <div class="panel stat-mini">
+    <div class="mini-ico"><i class="fa-solid fa-comments"></i></div>
+    <div class="mini-num">{{ comment_count }}</div>
+    <div class="mini-label">Comments</div>
+  </div>
 
-    <label>Bio</label>
-    <textarea name="bio" rows="4">{{ user.bio or '' }}</textarea>
-
-    <div class="row">
-      <div class="pill"><span class="mini users"></span> followers: {{ user.followers_count }}</div>
-      <div class="pill"><span class="mini users"></span> following: {{ user.following_count }}</div>
-    </div>
-
-    <button class="btn btn-primary" type="submit">Save</button>
-  </form>
-</div>
-
+  <div class="panel stat-mini">
+    <div class="mini-ico"><i class="fa-solid fa-star"></i></div>
+    <div class="mini-num">{{ like_count }}</div>
+    <div class="mini-label">Stars Given</div>
+  </div>
+</section>
 {% endblock %}

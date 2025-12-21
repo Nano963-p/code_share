@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}404 · CodeShare{% endblock %}
+{% block title %}403 · CodeShare{% endblock %}
 {% block content %}
 <div class="panel error">
-  <h1>404</h1>
-  <p class="muted">Page not found.</p>
+  <h1>403</h1>
+  <p class="muted">You don’t have permission to access this page.</p>
   <a class="btn btn-primary" href="{{ url_for('dashboard') }}">Back to Dashboard</a>
 </div>
 {% endblock %}

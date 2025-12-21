@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}404 · CodeShare{% endblock %}
+{% block title %}500 · CodeShare{% endblock %}
 {% block content %}
 <div class="panel error">
-  <h1>404</h1>
-  <p class="muted">Page not found.</p>
+  <h1>500</h1>
+  <p class="muted">Something went wrong on the server.</p>
   <a class="btn btn-primary" href="{{ url_for('dashboard') }}">Back to Dashboard</a>
 </div>
 {% endblock %}
