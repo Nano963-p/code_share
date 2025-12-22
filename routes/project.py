@@ -33,15 +33,6 @@ def create_project():
         (uid, title, description or None, is_private),
     )
 
-    # Owner membership
-    execute(
-        """
-        INSERT INTO project_members (project_id, user_id, role)
-        VALUES (%s, %s, 'owner')
-        """,
-        (pid, uid),
-    )
-
     log_activity(pid, uid, "created_project", "project", pid)
     return redirect(url_for("project", pid=pid))
 
