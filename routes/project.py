@@ -47,7 +47,8 @@ def project(pid: int):
         """
         SELECT
           p.id, p.title, p.description, p.created_at, p.is_private,
-          o.username AS owner_username, p.status
+          p.owner_id AS owner_id,
+          o.username AS owner_username, p.status, p.owner_id
         FROM projects p
         JOIN users o ON o.id=p.owner_id
         WHERE p.id=%s
@@ -103,7 +104,19 @@ def project(pid: int):
 
     # Owner flag for template
     owner_flag = is_project_owner(pid, uid)
+    project_owner_id = p["owner_id"]
 
+    owner_followers = fetchone(
+        "SELECT COUNT(*) AS c FROM followers WHERE following_id=%s",
+        (project_owner_id,),
+    )["c"]
+
+    is_following_owner = bool(
+        fetchone(
+            "SELECT 1 AS x FROM followers WHERE follower_id=%s AND following_id=%s",
+            (uid, project_owner_id),
+        )
+    )
     # User liked?
     liked = fetchone(
         "SELECT 1 AS x FROM stars WHERE user_id=%s AND project_id=%s",
@@ -164,6 +177,7 @@ def project(pid: int):
     return render_template(
         "project.html",
         user=u,
+        owner_id=p["owner_id"],
         project=project_tuple,
         is_owner=owner_flag,
         user_liked=user_liked,
@@ -171,6 +185,9 @@ def project(pid: int):
         members=members_t,
         files=files_t,
         comments=comments_t,
+        project_owner_id=project_owner_id,
+        owner_followers=owner_followers,
+        is_following_owner=is_following_owner,
     )
 
 

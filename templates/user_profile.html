@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{{ target.username }} · Profile · CodeShare{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="profile-head">
+    <div class="profile-ava">{{ target.username[0]|upper }}</div>
+    <div style="flex:1">
+      <div class="row row-static" style="justify-content:space-between; align-items:center;">
+        <div>
+          <h1 class="profile-name">{{ target.username }}</h1>
+          <div class="muted small">Joined: {{ target.created_at }}</div>
+        </div>
+
+        {% if target.id != user.id %}
+          {% if is_following %}
+            <form method="POST" action="{{ url_for('unfollow_user', user_id=target.id) }}">
+              <button class="btn btn-secondary" type="submit">
+                <i class="fa-solid fa-user-minus"></i> Unfollow
+              </button>
+            </form>
+          {% else %}
+            <form method="POST" action="{{ url_for('follow_user', user_id=target.id) }}">
+              <button class="btn btn-primary" type="submit">
+                <i class="fa-solid fa-user-plus"></i> Follow
+              </button>
+            </form>
+          {% endif %}
+        {% endif %}
+      </div>
+
+      <div class="muted" style="margin-top:8px;">
+        <span class="pill">{{ followers_count }} followers</span>
+        <span class="pill">{{ following_count }} following</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>{{ target.username }}’s Projects</h2>
+  </div>
+
+  {% if projects %}
+    <div class="list">
+      {% for p in projects %}
+        <a class="list-item" href="{{ url_for('project', pid=p.id) }}">
+          <div class="item-left">
+            <div class="file-ico"></div>
+            <div>
+              <div class="item-title">{{ p.title }}</div>
+              <div class="item-sub muted">
+                {% if p.description %}{{ p.description }}{% else %}No description{% endif %}
+                • <span class="pill-num"><i class="fa-solid fa-star"></i> {{ p.stars }}</span>
+                {% if p.is_private %} • <span class="badge badge-muted">Private</span>{% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="item-right">
+            <div class="pill">Open</div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty muted">No projects visible.</div>
+  {% endif %}
+</section>
+{% endblock %}

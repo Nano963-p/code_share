@@ -491,3 +491,9 @@ INSERT INTO role_permissions(role, permission, allowed) VALUES
 ('member','files_delete',0),
 ('member','comments_create',1),
 ('member','stars_toggle',1);
+
+SELECT project_id, role, COUNT(*)
+FROM project_members
+WHERE role = 'owner'
+GROUP BY project_id
+HAVING COUNT(*) > 1;

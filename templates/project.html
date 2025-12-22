@@ -6,10 +6,22 @@
   <div class="project-title-row">
     <div>
       <h1 class="project-title">{{ project[1] }}</h1>
-      <div class="muted">
-        Owner: <strong>{{ project[5] }}</strong>
-        {% if project[6] %} • <span class="badge badge-muted">{{ project[6]|capitalize }}</span>{% endif %}
+      <div class="muted owner-line">
+        <span>
+          Owner: <strong>{{ project[5] }}</strong>
+          {% if project[6] %} • <span class="badge badge-muted">{{ project[6]|capitalize }}</span>{% endif %}
+        </span>
+        <span class="pill small">👥 {{ owner_followers }} follower{% if owner_followers != 1 %}s{% endif %}</span>
       </div>
+      {% if user.id != project_owner_id %}
+      <form class="follow-form" method="POST"
+            action="{{ url_for(is_following_owner and 'unfollow_user' or 'follow_user', user_id=project_owner_id) }}">
+        <button class="btn {% if is_following_owner %}btn-ghost{% else %}btn-secondary{% endif %}" type="submit">
+          <i class="fa-solid fa-user-plus"></i>
+          {% if is_following_owner %}Unfollow{% else %}Follow{% endif %}
+        </button>
+      </form>
+      {% endif %}
     </div>
 
     <form method="POST" action="{{ url_for('like', pid=project[0]) }}">

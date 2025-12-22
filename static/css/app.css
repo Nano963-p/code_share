@@ -412,6 +412,7 @@ footer{
 .project-head{padding:18px}
 .project-title-row{display:flex; justify-content:space-between; gap:12px; align-items:flex-start}
 .project-title{margin:0; font-size:30px}
+.owner-line{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
 .project-desc{margin:12px 0 0; line-height:1.45}
 .pill-num{
   margin-left:8px;
@@ -420,6 +421,7 @@ footer{
   background:rgba(0,0,0,0.18);
   border:1px solid rgba(255,255,255,0.12);
 }
+.follow-form{margin-top:8px}
 
 /* Forms */
 .inline-form{display:flex; gap:10px; flex-wrap:wrap}
