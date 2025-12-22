@@ -520,3 +520,19 @@ FROM project_members
 WHERE role = 'owner'
 GROUP BY project_id
 HAVING COUNT(*) > 1;
+CREATE TABLE IF NOT EXISTS user_activity (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  action ENUM('followed','unfollowed') NOT NULL,
+  target_user_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_user_activity_user
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+
+  CONSTRAINT fk_user_activity_target
+    FOREIGN KEY (target_user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_user_activity_user_created ON user_activity(user_id, created_at);
+CREATE INDEX idx_user_activity_target_created ON user_activity(target_user_id, created_at);
