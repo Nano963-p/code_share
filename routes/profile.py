@@ -1,16 +1,17 @@
 from flask import render_template, redirect, url_for, flash, abort
+
 from db import fetchone, fetchall, execute
 from utils import login_required, current_user
 
 
-def _profile_stats(uid: int) -> dict:
-    """Return basic profile counters for a given user id."""
+@login_required
+def profile():
+    """Current user's profile page."""
+    u = current_user()
+    uid = u["id"]
+
     project_count = fetchone(
-        """
-        SELECT COUNT(*) AS c
-        FROM projects
-        WHERE owner_id=%s
-        """,
+        "SELECT COUNT(*) AS c FROM projects WHERE owner_id=%s",
         (uid,),
     )["c"]
 
@@ -19,53 +20,44 @@ def _profile_stats(uid: int) -> dict:
         (uid,),
     )["c"]
 
-    # NOTE: your schema uses 'stars' for project stars
     like_count = fetchone(
         "SELECT COUNT(*) AS c FROM stars WHERE user_id=%s",
         (uid,),
     )["c"]
 
-    followers_count = fetchone(
-        "SELECT COUNT(*) AS c FROM followers WHERE following_id=%s",
+    # Recent user activity (follow/unfollow)
+    activities = fetchall(
+        """
+        SELECT
+          ua.action,
+          ua.created_at,
+          u1.username AS actor,
+          u2.username AS target
+        FROM user_activity ua
+        JOIN users u1 ON u1.id = ua.user_id
+        JOIN users u2 ON u2.id = ua.target_user_id
+        WHERE ua.user_id = %s
+        ORDER BY ua.created_at DESC
+        LIMIT 15
+        """,
         (uid,),
-    )["c"]
-
-    following_count = fetchone(
-        "SELECT COUNT(*) AS c FROM followers WHERE follower_id=%s",
-        (uid,),
-    )["c"]
-
-    return {
-        "project_count": project_count,
-        "comment_count": comment_count,
-        "like_count": like_count,
-        "followers_count": followers_count,
-        "following_count": following_count,
-    }
-
-
-@login_required
-def profile():
-    """Profile page for the currently logged-in user."""
-    u = current_user()
-    if not u:
-        abort(403)
-
-    stats = _profile_stats(u["id"])
+    )
 
     return render_template(
         "profile.html",
         user=u,
-        **stats,
+        project_count=project_count,
+        comment_count=comment_count,
+        like_count=like_count,
+        activities=activities,
     )
 
 
 @login_required
 def user_profile(user_id: int):
-    """Public profile page for a user."""
+    """Public profile of a user."""
     viewer = current_user()
-    if not viewer:
-        abort(403)
+    viewer_id = viewer["id"]
 
     target = fetchone(
         "SELECT id, username, email, created_at FROM users WHERE id=%s",
@@ -74,74 +66,99 @@ def user_profile(user_id: int):
     if not target:
         abort(404)
 
-    # Is viewer following target?
-    is_following = False
-    if viewer["id"] != target["id"]:
-        row = fetchone(
-            "SELECT 1 AS ok FROM followers WHERE follower_id=%s AND following_id=%s",
-            (viewer["id"], target["id"]),
-        )
-        is_following = bool(row)
+    followers_count = fetchone(
+        "SELECT COUNT(*) AS c FROM followers WHERE following_id=%s",
+        (user_id,),
+    )["c"]
 
-    stats = _profile_stats(target["id"])
+    following_count = fetchone(
+        "SELECT COUNT(*) AS c FROM followers WHERE follower_id=%s",
+        (user_id,),
+    )["c"]
+
+    is_following = bool(
+        fetchone(
+            "SELECT 1 AS x FROM followers WHERE follower_id=%s AND following_id=%s",
+            (viewer_id, user_id),
+        )
+    )
 
     # Projects visible to viewer:
     # - public projects always visible
-    # - private projects visible if viewer is owner or a member
+    # - private projects visible if viewer is owner or is a project member
     projects = fetchall(
         """
         SELECT
           p.id,
           p.title,
           p.description,
+          p.created_at,
           p.updated_at,
           p.is_private,
           (SELECT COUNT(*) FROM stars s WHERE s.project_id=p.id) AS stars
         FROM projects p
         LEFT JOIN project_members pm
-          ON pm.project_id=p.id AND pm.user_id=%s
-        WHERE p.owner_id=%s
-          AND (p.is_private=0 OR p.owner_id=%s OR pm.user_id IS NOT NULL)
+          ON pm.project_id = p.id AND pm.user_id = %s
+        WHERE p.owner_id = %s
+          AND (
+            p.is_private = 0
+            OR p.owner_id = %s
+            OR pm.user_id IS NOT NULL
+          )
         ORDER BY p.updated_at DESC
         LIMIT 50
         """,
-        (viewer["id"], target["id"], viewer["id"]),
+        (viewer_id, user_id, viewer_id),
     )
 
     return render_template(
         "user_profile.html",
         user=viewer,
         target=target,
+        followers_count=followers_count,
+        following_count=following_count,
         is_following=is_following,
         projects=projects,
-        **stats,
     )
 
 
 @login_required
 def follow_user(user_id: int):
     viewer = current_user()
-    if not viewer:
-        abort(403)
-
     follower_id = viewer["id"]
-    following_id = user_id
 
-    if follower_id == following_id:
-        flash("You cannot follow yourself.", "warning")
+    if follower_id == user_id:
+        flash("You cannot follow yourself.", "error")
         return redirect(url_for("user_profile", user_id=user_id))
 
-    # Prevent duplicates (PRIMARY KEY (follower_id, following_id))
-    try:
+    # Ensure target exists
+    target = fetchone("SELECT id FROM users WHERE id=%s", (user_id,))
+    if not target:
+        abort(404)
+
+    # Avoid duplicate activity spam
+    already = fetchone(
+        "SELECT 1 AS x FROM followers WHERE follower_id=%s AND following_id=%s",
+        (follower_id, user_id),
+    )
+    if not already:
         execute(
-            "INSERT INTO followers (follower_id, following_id) VALUES (%s, %s)",
-            (follower_id, following_id),
+            """
+            INSERT INTO followers (follower_id, following_id)
+            VALUES (%s, %s)
+            """,
+            (follower_id, user_id),
+        )
+        execute(
+            """
+            INSERT INTO user_activity (user_id, action, target_user_id)
+            VALUES (%s, 'followed', %s)
+            """,
+            (follower_id, user_id),
         )
         flash("Followed.", "success")
-    except Exception:
-        # If already following (duplicate PK) or other DB constraint error,
-        # just treat as no-op for UX.
-        flash("Already following.", "info")
+    else:
+        flash("You already follow this user.", "info")
 
     return redirect(url_for("user_profile", user_id=user_id))
 
@@ -149,16 +166,108 @@ def follow_user(user_id: int):
 @login_required
 def unfollow_user(user_id: int):
     viewer = current_user()
-    if not viewer:
-        abort(403)
-
     follower_id = viewer["id"]
-    following_id = user_id
+
+    existed = fetchone(
+        "SELECT 1 AS x FROM followers WHERE follower_id=%s AND following_id=%s",
+        (follower_id, user_id),
+    )
 
     execute(
         "DELETE FROM followers WHERE follower_id=%s AND following_id=%s",
-        (follower_id, following_id),
+        (follower_id, user_id),
     )
 
-    flash("Unfollowed.", "success")
+    if existed:
+        execute(
+            """
+            INSERT INTO user_activity (user_id, action, target_user_id)
+            VALUES (%s, 'unfollowed', %s)
+            """,
+            (follower_id, user_id),
+        )
+        flash("Unfollowed.", "success")
+    else:
+        flash("You are not following this user.", "info")
+
     return redirect(url_for("user_profile", user_id=user_id))
+
+
+@login_required
+def user_followers(user_id: int):
+    """List users who follow `user_id`."""
+    viewer = current_user()
+    viewer_id = viewer["id"]
+
+    target = fetchone(
+        "SELECT id, username, created_at FROM users WHERE id=%s",
+        (user_id,),
+    )
+    if not target:
+        abort(404)
+
+    followers = fetchall(
+        """
+        SELECT
+          u.id,
+          u.username,
+          u.created_at,
+          f.created_at AS since,
+          CASE WHEN mf.follower_id IS NULL THEN 0 ELSE 1 END AS i_follow
+        FROM followers f
+        JOIN users u ON u.id = f.follower_id
+        LEFT JOIN followers mf
+          ON mf.follower_id = %s AND mf.following_id = u.id
+        WHERE f.following_id = %s
+        ORDER BY f.created_at DESC
+        """,
+        (viewer_id, user_id),
+    )
+
+    return render_template(
+        "followers_list.html",
+        user=viewer,
+        target=target,
+        mode="followers",
+        people=followers,
+    )
+
+
+@login_required
+def user_following(user_id: int):
+    """List users that `user_id` follows."""
+    viewer = current_user()
+    viewer_id = viewer["id"]
+
+    target = fetchone(
+        "SELECT id, username, created_at FROM users WHERE id=%s",
+        (user_id,),
+    )
+    if not target:
+        abort(404)
+
+    following = fetchall(
+        """
+        SELECT
+          u.id,
+          u.username,
+          u.created_at,
+          f.created_at AS since,
+          CASE WHEN mf.follower_id IS NULL THEN 0 ELSE 1 END AS i_follow
+        FROM followers f
+        JOIN users u ON u.id = f.following_id
+        LEFT JOIN followers mf
+          ON mf.follower_id = %s AND mf.following_id = u.id
+        WHERE f.follower_id = %s
+        ORDER BY f.created_at DESC
+        """,
+        (viewer_id, user_id),
+    )
+
+    return render_template(
+        "followers_list.html",
+        user=viewer,
+        target=target,
+        mode="following",
+        people=following,
+    )

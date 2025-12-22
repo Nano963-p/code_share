@@ -36,11 +36,11 @@
         <div class="stat-label">Stars Received</div>
       </div>
 
-      <div class="stat-card stat-pink">
+      <a class="stat-card stat-pink" href="{{ url_for('user_followers', user_id=user.id) }}" style="text-decoration:none;">
         <div class="stat-ico"><i class="fa-solid fa-user-group"></i></div>
         <div class="stat-num">{{ stats_followers }}</div>
         <div class="stat-label">Followers</div>
-      </div>
+      </a>
     </div>
   </div>
 </section>

@@ -32,4 +32,36 @@
     <div class="mini-label">Stars Given</div>
   </div>
 </section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Recent Activities</h2>
+  </div>
+
+  {% if activities and activities|length > 0 %}
+    <div class="activity">
+      {% for a in activities %}
+        <div class="activity-item">
+          <div class="dot"></div>
+          <div class="activity-body">
+            <div class="activity-line">
+              <strong>{{ a.actor }}</strong>
+              {% if a.action == 'followed' %}
+                <span class="muted"> followed </span>
+              {% elif a.action == 'unfollowed' %}
+                <span class="muted"> unfollowed </span>
+              {% else %}
+                <span class="muted"> {{ a.action.replace('_',' ') }} </span>
+              {% endif %}
+              <strong>{{ a.target }}</strong>
+            </div>
+            <div class="muted small">{{ a.created_at }}</div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty">No activity.</div>
+  {% endif %}
+</section>
 {% endblock %}

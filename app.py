@@ -8,7 +8,14 @@ from utils import login_required, current_user
 # Route handlers
 from routes.auth import login, signup, logout
 from routes.dashboard import dashboard
-from routes.profile import profile, user_profile, follow_user, unfollow_user
+from routes.profile import (
+    profile,
+    user_profile,
+    follow_user,
+    unfollow_user,
+    user_followers,
+    user_following,
+)
 from routes.project import (
     project,
     create_project,
@@ -50,6 +57,8 @@ def create_app():
     app.add_url_rule("/users/<int:user_id>", "user_profile", user_profile)
     app.add_url_rule("/users/<int:user_id>/follow", "follow_user", follow_user, methods=["POST"])
     app.add_url_rule("/users/<int:user_id>/unfollow", "unfollow_user", unfollow_user, methods=["POST"])
+    app.add_url_rule("/users/<int:user_id>/followers", "user_followers", user_followers)
+    app.add_url_rule("/users/<int:user_id>/following", "user_following", user_following)
 
     # ================= PROJECTS =================
     app.add_url_rule(

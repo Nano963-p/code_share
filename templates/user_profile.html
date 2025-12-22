@@ -30,8 +30,8 @@
       </div>
 
       <div class="muted" style="margin-top:8px;">
-        <span class="pill">{{ followers_count }} followers</span>
-        <span class="pill">{{ following_count }} following</span>
+        <a class="pill" href="{{ url_for('user_followers', user_id=target.id) }}">{{ followers_count }} followers</a>
+        <a class="pill" href="{{ url_for('user_following', user_id=target.id) }}">{{ following_count }} following</a>
       </div>
     </div>
   </div>

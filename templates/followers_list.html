@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}
+  {% if mode == 'followers' %}Followers{% else %}Following{% endif %} · {{ target.username }} · CodeShare
+{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-head" style="align-items:center; justify-content:space-between;">
+    <div>
+      <h2>
+        {% if mode == 'followers' %}
+          Followers of {{ target.username }}
+        {% else %}
+          {{ target.username }} is Following
+        {% endif %}
+      </h2>
+      <div class="muted small">
+        <a class="link" href="{{ url_for('user_profile', user_id=target.id) }}">Back to profile</a>
+      </div>
+    </div>
+
+    <div class="row" style="gap:8px;">
+      <a class="btn btn-secondary" href="{{ url_for('user_followers', user_id=target.id) }}">
+        Followers
+      </a>
+      <a class="btn btn-secondary" href="{{ url_for('user_following', user_id=target.id) }}">
+        Following
+      </a>
+    </div>
+  </div>
+
+  {% if people and people|length > 0 %}
+    <div class="list">
+      {% for p in people %}
+        <div class="list-item" style="display:flex; align-items:center; justify-content:space-between;">
+          <div class="item-left" style="display:flex; gap:12px; align-items:center;">
+            <div class="profile-ava" style="width:40px; height:40px; font-size:16px;">
+              {{ p.username[0]|upper }}
+            </div>
+            <div>
+              <div class="item-title">
+                <a class="link" href="{{ url_for('user_profile', user_id=p.id) }}">{{ p.username }}</a>
+              </div>
+              <div class="item-sub muted">Since: {{ p.since }}</div>
+            </div>
+          </div>
+
+          <div class="item-right" style="display:flex; gap:8px; align-items:center;">
+            {% if p.id != user.id %}
+              {% if p.i_follow %}
+                <form method="POST" action="{{ url_for('unfollow_user', user_id=p.id) }}">
+                  <button class="btn btn-secondary" type="submit">
+                    <i class="fa-solid fa-user-minus"></i> Unfollow
+                  </button>
+                </form>
+              {% else %}
+                <form method="POST" action="{{ url_for('follow_user', user_id=p.id) }}">
+                  <button class="btn btn-primary" type="submit">
+                    <i class="fa-solid fa-user-plus"></i> Follow
+                  </button>
+                </form>
+              {% endif %}
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty">No users found.</div>
+  {% endif %}
+</section>
+{% endblock %}
