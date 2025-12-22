@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Projects · {{ target.username }} · CodeShare{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-head" style="align-items:center; justify-content:space-between;">
+    <div>
+      <h2>Projects of {{ target.username }}</h2>
+      <div class="muted small">
+        <a class="link" href="{{ url_for('user_profile', user_id=target.id) }}">Back to profile</a>
+      </div>
+    </div>
+
+    <div class="row" style="gap:8px;">
+      <a class="btn btn-secondary" href="{{ url_for('user_projects', user_id=target.id) }}">Projects</a>
+      <a class="btn btn-secondary" href="{{ url_for('user_stars', user_id=target.id) }}">Stars Received</a>
+    </div>
+  </div>
+
+  {% if projects and projects|length > 0 %}
+    <div class="list">
+      {% for p in projects %}
+        <a class="list-item" href="{{ url_for('project', pid=p.id) }}">
+          <div class="item-left">
+            <div class="file-ico"></div>
+            <div>
+              <div class="item-title">{{ p.title }}</div>
+              <div class="item-sub muted">
+                {% if p.description %}{{ p.description }}{% else %}No description{% endif %}
+                • <span class="pill-num"><i class="fa-solid fa-star"></i> {{ p.stars }}</span>
+                {% if p.is_private %} • <span class="badge badge-muted">Private</span>{% endif %}
+                {% if p.status %} • <span class="badge badge-muted">{{ p.status|capitalize }}</span>{% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="item-right">
+            <div class="pill">Open</div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty">No projects found.</div>
+  {% endif %}
+</section>
+{% endblock %}

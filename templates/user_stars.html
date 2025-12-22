@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Stars Received · {{ target.username }} · CodeShare{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-head" style="align-items:center; justify-content:space-between;">
+    <div>
+      <h2>Stars received by {{ target.username }}</h2>
+      <div class="muted small">
+        <a class="link" href="{{ url_for('user_profile', user_id=target.id) }}">Back to profile</a>
+      </div>
+    </div>
+
+    <div class="row" style="gap:8px;">
+      <a class="btn btn-secondary" href="{{ url_for('user_projects', user_id=target.id) }}">Projects</a>
+      <a class="btn btn-secondary" href="{{ url_for('user_stars', user_id=target.id) }}">Stars Received</a>
+    </div>
+  </div>
+
+  {% if projects and projects|length > 0 %}
+    <div class="list">
+      {% for p in projects %}
+        {#
+          IMPORTANT: Do NOT nest <a> tags. Nested anchors break click behavior in browsers.
+          We keep the row as a normal container and add explicit links for "Open" and stargazers.
+        #}
+        <div class="list-item">
+          <div class="item-left">
+            <div class="file-ico"></div>
+            <div>
+              <div class="item-title">
+                <a class="link" href="{{ url_for('project', pid=p.id) }}">{{ p.title }}</a>
+              </div>
+              <div class="item-sub muted">
+                {% if p.description %}{{ p.description }}{% else %}No description{% endif %}
+                • <a class="pill-num link" href="{{ url_for('project_stargazers', pid=p.id) }}"><i class="fa-solid fa-star"></i> {{ p.star_count }}</a>
+                {% if p.is_private %} • <span class="badge badge-muted">Private</span>{% endif %}
+                {% if p.status %} • <span class="badge badge-muted">{{ p.status|capitalize }}</span>{% endif %}
+              </div>
+              {% if p.starred_by %}
+                <div class="muted small" style="margin-top:6px;">Starred by: {{ p.starred_by }}</div>
+              {% endif %}
+            </div>
+          </div>
+          <div class="item-right">
+            <a class="pill" href="{{ url_for('project', pid=p.id) }}">Open</a>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty">No starred projects yet.</div>
+  {% endif %}
+</section>
+{% endblock %}

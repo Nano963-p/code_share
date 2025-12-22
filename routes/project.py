@@ -341,3 +341,43 @@ def delete_file(file_id: int):
 
     flash("File deleted.", "success")
     return redirect(url_for("project", pid=f["project_id"]))
+
+@login_required
+def project_stargazers(pid: int):
+    """List users who starred a project (only if viewer can access project)."""
+    viewer = current_user()
+    viewer_id = viewer["id"]
+
+    project = fetchone(
+        """
+        SELECT
+          p.id, p.title, p.is_private,
+          (SELECT COUNT(*) FROM stars s WHERE s.project_id=p.id) AS stars
+        FROM projects p
+        LEFT JOIN project_members pm
+          ON pm.project_id = p.id AND pm.user_id = %s
+        WHERE p.id = %s
+          AND (p.is_private = 0 OR pm.user_id IS NOT NULL)
+        """,
+        (viewer_id, pid),
+    )
+    if not project:
+        abort(404)
+
+    users = fetchall(
+        """
+        SELECT u.id, u.username, s.created_at
+        FROM stars s
+        JOIN users u ON u.id = s.user_id
+        WHERE s.project_id = %s
+        ORDER BY s.created_at DESC
+        """,
+        (pid,),
+    )
+
+    return render_template(
+        "project_stargazers.html",
+        user=viewer,
+        project=project,
+        users=users,
+    )

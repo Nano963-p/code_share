@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Stargazers · {{ project.title }} · CodeShare{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head" style="align-items:center; justify-content:space-between;">
+    <div>
+      <h2>Stargazers</h2>
+      <div class="muted small">
+        <a class="link" href="{{ url_for('project', pid=project.id) }}">Back to project</a>
+      </div>
+    </div>
+    <div class="pill-num"><i class="fa-solid fa-star"></i> {{ project.stars }}</div>
+  </div>
+
+  {% if users %}
+    <div class="list">
+      {% for u in users %}
+        <a class="list-item" href="{{ url_for('user_profile', user_id=u.id) }}">
+          <div class="item-left">
+            <div class="file-ico"></div>
+            <div>
+              <div class="item-title">{{ u.username }}</div>
+              <div class="item-sub muted">Starred • {{ u.created_at }}</div>
+            </div>
+          </div>
+          <div class="item-right"><div class="pill">View</div></div>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty">No stargazers yet.</div>
+  {% endif %}
+</section>
+{% endblock %}

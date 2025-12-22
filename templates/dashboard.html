@@ -24,17 +24,17 @@
     </div>
 
     <div class="hero-stats">
-      <div class="stat-card stat-purple">
+      <a class="stat-card stat-purple" href="{{ url_for('user_projects', user_id=user.id) }}" style="text-decoration:none;">
         <div class="stat-ico"><i class="fa-solid fa-folder"></i></div>
         <div class="stat-num">{{ stats_projects }}</div>
         <div class="stat-label">Projects</div>
-      </div>
+      </a>
 
-      <div class="stat-card stat-blue">
+      <a class="stat-card stat-blue" href="{{ url_for('user_stars', user_id=user.id) }}" style="text-decoration:none;">
         <div class="stat-ico"><i class="fa-solid fa-star"></i></div>
         <div class="stat-num">{{ stats_stars }}</div>
         <div class="stat-label">Stars Received</div>
-      </div>
+      </a>
 
       <a class="stat-card stat-pink" href="{{ url_for('user_followers', user_id=user.id) }}" style="text-decoration:none;">
         <div class="stat-ico"><i class="fa-solid fa-user-group"></i></div>

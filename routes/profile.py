@@ -271,3 +271,100 @@ def user_following(user_id: int):
         mode="following",
         people=following,
     )
+
+
+@login_required
+def user_projects(user_id: int):
+    """List projects for a user (respecting visibility rules)."""
+    viewer = current_user()
+    viewer_id = viewer["id"]
+
+    target = fetchone(
+        "SELECT id, username, created_at FROM users WHERE id=%s",
+        (user_id,),
+    )
+    if not target:
+        abort(404)
+
+    projects = fetchall(
+        """
+        SELECT
+          p.id,
+          p.title,
+          p.description,
+          p.created_at,
+          p.updated_at,
+          p.is_private,
+          p.status,
+          (SELECT COUNT(*) FROM stars s WHERE s.project_id=p.id) AS stars
+        FROM projects p
+        LEFT JOIN project_members pm
+          ON pm.project_id = p.id AND pm.user_id = %s
+        WHERE p.owner_id = %s
+          AND (
+            p.is_private = 0
+            OR p.owner_id = %s
+            OR pm.user_id IS NOT NULL
+          )
+        ORDER BY p.updated_at DESC
+        LIMIT 100
+        """,
+        (viewer_id, user_id, viewer_id),
+    )
+
+    return render_template(
+        "user_projects.html",
+        user=viewer,
+        target=target,
+        projects=projects,
+    )
+
+
+@login_required
+def user_stars(user_id: int):
+    """List projects (owned by user) that received stars, respecting visibility."""
+    viewer = current_user()
+    viewer_id = viewer["id"]
+
+    target = fetchone(
+        "SELECT id, username, created_at FROM users WHERE id=%s",
+        (user_id,),
+    )
+    if not target:
+        abort(404)
+
+    projects = fetchall(
+        """
+        SELECT
+          p.id,
+          p.title,
+          p.description,
+          p.created_at,
+          p.updated_at,
+          p.is_private,
+          p.status,
+          COUNT(s.user_id) AS star_count
+        FROM projects p
+        JOIN stars s ON s.project_id = p.id
+        JOIN users su ON su.id = s.user_id
+        LEFT JOIN project_members pm
+          ON pm.project_id = p.id AND pm.user_id = %s
+        WHERE p.owner_id = %s
+          AND (
+            p.is_private = 0
+            OR p.owner_id = %s
+            OR pm.user_id IS NOT NULL
+          )
+        GROUP BY p.id
+        ORDER BY star_count DESC, p.updated_at DESC
+        LIMIT 100
+        """,
+        (viewer_id, user_id, viewer_id),
+    )
+
+    return render_template(
+        "user_stars.html",
+        user=viewer,
+        target=target,
+        projects=projects,
+    )
