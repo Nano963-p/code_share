@@ -1,0 +1,61 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="planetGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6366f1;stop-opacity:1" />
+    </linearGradient>
+
+    <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:rgba(6,182,212,0.3);stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#06b6d4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:rgba(6,182,212,0.3);stop-opacity:1" />
+    </linearGradient>
+
+    <radialGradient id="glowGradient">
+      <stop offset="0%" style="stop-color:#a855f7;stop-opacity:0.6" />
+      <stop offset="100%" style="stop-color:#a855f7;stop-opacity:0" />
+    </radialGradient>
+
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <circle cx="100" cy="100" r="70" fill="url(#glowGradient)" opacity="0.5"/>
+  <circle cx="100" cy="100" r="50" fill="url(#planetGradient)" filter="url(#glow)"/>
+
+  <ellipse cx="85" cy="90" rx="8" ry="6" fill="rgba(255,255,255,0.15)"/>
+  <ellipse cx="110" cy="105" rx="6" ry="5" fill="rgba(255,255,255,0.12)"/>
+  <circle cx="95" cy="115" r="4" fill="rgba(255,255,255,0.1)"/>
+
+  <ellipse cx="85" cy="85" rx="15" ry="12" fill="rgba(255,255,255,0.25)" opacity="0.6"/>
+
+  <ellipse cx="100" cy="100" rx="75" ry="20" fill="none"
+           stroke="url(#ringGradient)" stroke-width="8" opacity="0.4"
+           transform="rotate(-25 100 100)"/>
+
+  <path d="M 30 85 Q 40 95, 55 98 L 145 102 Q 160 105, 170 115"
+        fill="none" stroke="url(#ringGradient)" stroke-width="8"
+        opacity="0.9" filter="url(#glow)"/>
+
+  <circle cx="55" cy="70" r="6" fill="#60a5fa" opacity="0.8">
+    <animateTransform
+      attributeName="transform"
+      attributeType="XML"
+      type="rotate"
+      from="0 100 100"
+      to="360 100 100"
+      dur="8s"
+      repeatCount="indefinite"/>
+  </circle>
+
+  <circle cx="30" cy="40" r="2" fill="#ffffff" opacity="0.7"/>
+  <circle cx="170" cy="50" r="1.5" fill="#ffffff" opacity="0.6"/>
+  <circle cx="160" cy="150" r="2" fill="#ffffff" opacity="0.8"/>
+  <circle cx="40" cy="160" r="1.5" fill="#ffffff" opacity="0.5"/>
+</svg>

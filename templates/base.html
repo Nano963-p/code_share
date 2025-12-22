@@ -1,67 +1,85 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <title>{% block title %}CodeShare{% endblock %}</title>
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  {% block extra_css %}{% endblock %}
 </head>
 
 <body class="{% if request.endpoint in ['login','signup'] %}auth-body{% endif %}">
 
-{% if request.endpoint not in ['login','signup'] %}
-<header class="topbar panel glass">
-  <div class="container topbar-inner">
+  {% if request.endpoint not in ['login','signup'] %}
+  <header>
+    <div class="container">
+      <div class="header-content">
+        <a href="{{ url_for('dashboard') }}" class="logo">
+          <div class="logo-icon">
+            {% include 'partials/logo.svg' %}
+          </div>
+          <span>CodeShare</span>
+        </a>
 
-    <a class="brand" href="{{ url_for('dashboard') }}">
-      <img class="brand-logo" src="{{ url_for('static', filename='img/saturn.png') }}" alt="Saturn">
-      <span class="brand-name">CodeShare</span>
-    </a>
+        <nav>
+          <a href="{{ url_for('dashboard') }}"
+             class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+            Home
+          </a>
+          <a href="{{ url_for('dashboard') }}#popular">Explore</a>
+          <a href="{{ url_for('dashboard') }}#my-projects">My Projects</a>
+        </nav>
 
-    <nav class="nav">
-      <a class="nav-link" href="{{ url_for('dashboard') }}">Home</a>
-      <a class="nav-link" href="{{ url_for('dashboard') }}#popular">Explore</a>
-      <a class="nav-link" href="{{ url_for('dashboard') }}#my-projects">My Projects</a>
-    </nav>
+        <div class="header-right">
+          <form class="search-box" method="GET" action="{{ url_for('search') }}">
+            <input type="text" name="q" placeholder="Search projects..." value="{{ request.args.get('q','') }}">
+          </form>
 
-    <div class="topbar-right">
-      <form class="search" method="GET" action="{{ url_for('search') }}">
-        <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="text" name="q" placeholder="Search projects..." value="{{ request.args.get('q','') }}">
-      </form>
-
-      <a class="user-chip" href="{{ url_for('profile') }}">
-        <span class="avatar">{{ (user.username[0] if user else 'U')|upper }}</span>
-        <span class="user-name">{{ user.username if user else 'User' }}</span>
-      </a>
-
-      <a class="btn btn-ghost" href="{{ url_for('logout') }}">Logout</a>
-    </div>
-
-  </div>
-</header>
-{% endif %}
-
-<main class="container">
-  <div class="{% if request.endpoint not in ['login','signup'] %}dashboard-shell{% endif %}">
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="flash">
-          {% for category, message in messages %}
-            <div class="alert alert-{{ category }}">{{ message }}</div>
-          {% endfor %}
+          {% if user %}
+            <a class="user-menu" href="{{ url_for('profile') }}" aria-label="Profile">
+              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed={{ user.username }}"
+                   alt="{{ user.username }}" class="user-avatar">
+              <span>{{ user.username }}</span>
+              <span class="caret">▼</span>
+            </a>
+            <a class="btn btn-primary" href="{{ url_for('logout') }}">Logout</a>
+          {% else %}
+            <a class="btn btn-primary" href="{{ url_for('login') }}">Login</a>
+          {% endif %}
         </div>
-      {% endif %}
-    {% endwith %}
+      </div>
+    </div>
+  </header>
+  {% endif %}
 
-    {% block content %}{% endblock %}
-  </div>
-</main>
+  <main>
+    <div class="container">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-messages">
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
 
-<script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  {% if request.endpoint not in ['login','signup'] %}
+  <footer>
+    <div class="container">
+      <p>&copy; 2024 CodeShare. All rights reserved.</p>
+    </div>
+  </footer>
+  {% endif %}
+
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+  {% block extra_js %}{% endblock %}
 </body>
 </html>
