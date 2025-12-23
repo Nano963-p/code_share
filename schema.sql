@@ -12,6 +12,7 @@ USE code_share;
 -- Supprimer d'abord les tables dépendantes
 DROP TABLE IF EXISTS project_activity;
 DROP TABLE IF EXISTS project_tags;
+DROP TABLE IF EXISTS user_activity;
 DROP TABLE IF EXISTS tags;
 DROP TABLE IF EXISTS followers;
 DROP TABLE IF EXISTS stars;
@@ -19,6 +20,7 @@ DROP TABLE IF EXISTS comments;
 DROP TABLE IF EXISTS files;
 DROP TABLE IF EXISTS project_members;
 DROP TABLE IF EXISTS projects;
+DROP TABLE IF EXISTS role_permissions;
 DROP TABLE IF EXISTS users;
 
 /* =========================================================
@@ -122,7 +124,7 @@ CREATE TABLE files (
   CONSTRAINT uq_files_project_filepath UNIQUE (project_id, filepath),
 
   CONSTRAINT chk_filesize_positive CHECK (filesize > 0),
-  CONSTRAINT chk_filesize_limit CHECK (filesize <= 10485760)
+  CONSTRAINT chk_filesize_limit CHECK (filesize <= 41943040)
 ) ENGINE=InnoDB;
 
 CREATE INDEX idx_files_project ON files(project_id);
@@ -288,10 +290,6 @@ CREATE INDEX idx_activity_project_created ON project_activity(project_id, create
 CREATE INDEX idx_activity_user_created ON project_activity(user_id, created_at);
 
 USE code_share;
-
--- Helpful indexes (safe to add)
-CREATE INDEX idx_pm_project_role ON project_members(project_id, role);
-CREATE INDEX idx_pm_user ON project_members(user_id);
 
 -- If you re-run this script, drop triggers/procedure first
 DROP TRIGGER IF EXISTS trg_projects_ai_add_owner_member;
