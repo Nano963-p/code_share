@@ -13,7 +13,7 @@
         </div>
 
         <div class="hero-actions">
-          <a class="btn btn-secondary" href="{{ url_for('profile') }}">
+          <a class="btn btn-secondary" href="{{ url_for('edit_profile') }}">
             Edit Profile
           </a>
           <a class="btn btn-ghost" href="{{ url_for('logout') }}">
@@ -24,11 +24,11 @@
     </div>
 
     <div class="hero-stats">
-      <a class="stat-card stat-purple" href="{{ url_for('user_projects', user_id=user.id) }}" style="text-decoration:none;">
+      <div class="stat-card stat-purple stat-static">
         <div class="stat-ico"><i class="fa-solid fa-folder"></i></div>
         <div class="stat-num">{{ stats_projects }}</div>
         <div class="stat-label">Projects</div>
-      </a>
+      </div>
 
       <a class="stat-card stat-blue" href="{{ url_for('user_stars', user_id=user.id) }}" style="text-decoration:none;">
         <div class="stat-ico"><i class="fa-solid fa-star"></i></div>

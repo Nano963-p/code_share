@@ -316,6 +316,9 @@ footer{
   position:relative;
   overflow:hidden;
 }
+
+.stat-static{pointer-events:none; cursor:default;}
+.stat-static *{pointer-events:none;}
 .stat-ico{
   width:36px; height:36px;
   border-radius:14px;
@@ -459,6 +462,7 @@ footer{
 
 /* Profile */
 .profile-head{display:flex; gap:14px; padding:18px; align-items:center}
+.profile-actions{margin-left:auto; display:flex; gap:10px}
 .profile-ava{
   width:54px; height:54px; border-radius:20px;
   display:grid; place-items:center;

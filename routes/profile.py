@@ -1,7 +1,13 @@
-from flask import render_template, redirect, url_for, flash, abort
+import re
+
+from flask import render_template, redirect, url_for, flash, abort, request
 
 from db import fetchone, fetchall, execute
-from utils import login_required, current_user
+from utils import login_required, current_user, hash_password, verify_password
+
+
+_USERNAME_RE = re.compile(r"^[a-zA-Z0-9_]{3,30}$")
+_EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 
 
 @login_required
@@ -15,8 +21,11 @@ def profile():
         (uid,),
     )["c"]
 
+    # Comments authored by the user.
+    # This must match what the UI label says ("Comments").
+    # Use COUNT(id) so the intent is explicit, and COALESCE to avoid None.
     comment_count = fetchone(
-        "SELECT COUNT(*) AS c FROM comments WHERE user_id=%s",
+        "SELECT COALESCE(COUNT(c.id), 0) AS c FROM comments c WHERE c.user_id=%s",
         (uid,),
     )["c"]
 
@@ -51,6 +60,82 @@ def profile():
         like_count=like_count,
         activities=activities,
     )
+
+
+@login_required
+def edit_profile():
+    """Edit current user's account details (username, email, password)."""
+    u = current_user()
+    uid = u["id"]
+
+    if request.method == "GET":
+        return render_template("edit_profile.html", user=u)
+
+    # --- Read inputs ---
+    new_username = (request.form.get("username") or "").strip()
+    new_email = (request.form.get("email") or "").strip()
+    current_pw = request.form.get("current_password") or ""
+    new_pw = request.form.get("new_password") or ""
+    confirm_pw = request.form.get("confirm_password") or ""
+
+    # --- Basic validation ---
+    if not _USERNAME_RE.match(new_username):
+        flash("Username must be 3–30 characters and contain only letters, numbers, or underscore.", "error")
+        return redirect(url_for("edit_profile"))
+
+    if not _EMAIL_RE.match(new_email):
+        flash("Please enter a valid email address.", "error")
+        return redirect(url_for("edit_profile"))
+
+    # Username/email uniqueness (exclude self)
+    exists = fetchone(
+        """
+        SELECT id
+        FROM users
+        WHERE (username_norm = LOWER(TRIM(%s)) OR email_norm = LOWER(TRIM(%s)))
+          AND id <> %s
+        """,
+        (new_username, new_email, uid),
+    )
+    if exists:
+        flash("Username or email already in use.", "error")
+        return redirect(url_for("edit_profile"))
+
+    # Password change is optional; if requested, verify current password.
+    password_hash = None
+    if new_pw or confirm_pw:
+        if not new_pw or not confirm_pw:
+            flash("Please fill both new password fields.", "error")
+            return redirect(url_for("edit_profile"))
+        if new_pw != confirm_pw:
+            flash("New passwords do not match.", "error")
+            return redirect(url_for("edit_profile"))
+
+        row = fetchone("SELECT password_hash FROM users WHERE id=%s", (uid,))
+        if not row or not verify_password(current_pw, row["password_hash"]):
+            flash("Current password is incorrect.", "error")
+            return redirect(url_for("edit_profile"))
+
+        if len(new_pw) < 6:
+            flash("New password must be at least 6 characters.", "error")
+            return redirect(url_for("edit_profile"))
+
+        password_hash = hash_password(new_pw)
+
+    # --- Persist ---
+    if password_hash:
+        execute(
+            "UPDATE users SET username=%s, email=%s, password_hash=%s WHERE id=%s",
+            (new_username, new_email, password_hash, uid),
+        )
+    else:
+        execute(
+            "UPDATE users SET username=%s, email=%s WHERE id=%s",
+            (new_username, new_email, uid),
+        )
+
+    flash("Profile updated.", "success")
+    return redirect(url_for("profile"))
 
 
 @login_required

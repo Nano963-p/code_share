@@ -10,6 +10,7 @@ from routes.auth import login, signup, logout
 from routes.dashboard import dashboard
 from routes.profile import (
     profile,
+    edit_profile,
     user_profile,
     follow_user,
     unfollow_user,
@@ -57,6 +58,7 @@ def create_app():
     # ================= MAIN =================
     app.add_url_rule("/dashboard", "dashboard", dashboard)
     app.add_url_rule("/profile", "profile", profile)
+    app.add_url_rule("/profile/edit", "edit_profile", edit_profile, methods=["GET", "POST"])
     app.add_url_rule("/users/<int:user_id>", "user_profile", user_profile)
     app.add_url_rule("/users/<int:user_id>/follow", "follow_user", follow_user, methods=["POST"])
     app.add_url_rule("/users/<int:user_id>/unfollow", "unfollow_user", unfollow_user, methods=["POST"])

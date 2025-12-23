@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Edit Profile · CodeShare{% endblock %}
+
+{% block content %}
+<section class="panel" style="max-width: 760px; margin: 0 auto;">
+  <div class="panel-head" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+    <h2>Edit Profile</h2>
+    <a class="btn btn-ghost" href="{{ url_for('profile') }}">Back to profile</a>
+  </div>
+
+  <form method="POST" action="{{ url_for('edit_profile') }}" class="auth-form" style="margin-top: 10px;">
+    <label>Username</label>
+    <input name="username" required value="{{ user.username }}" autocomplete="username" />
+
+    <label>Email</label>
+    <input type="email" name="email" required value="{{ user.email }}" autocomplete="email" />
+
+    <div class="divider" style="margin: 14px 0; opacity: .35;"></div>
+
+    <div class="muted" style="margin-bottom: 10px;">Change password (optional)</div>
+
+    <label>Current password</label>
+    <input type="password" name="current_password" autocomplete="current-password" placeholder="Required only if changing password" />
+
+    <label>New password</label>
+    <input type="password" name="new_password" autocomplete="new-password" placeholder="At least 6 characters" />
+
+    <label>Confirm new password</label>
+    <input type="password" name="confirm_password" autocomplete="new-password" />
+
+    <div style="display:flex; gap:10px; margin-top: 14px;">
+      <button class="btn btn-primary" type="submit">Save changes</button>
+      <a class="btn btn-secondary" href="{{ url_for('profile') }}">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}
