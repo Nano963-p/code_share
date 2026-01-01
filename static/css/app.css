@@ -860,3 +860,150 @@ footer{
   border: 1px solid rgba(255,255,255,0.10);
   color: rgba(255,255,255,0.70);
 }
+
+
+/* =========================
+   Tags UI
+   ========================= */
+.tag-row{
+  margin-top:10px;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.tags, .tags-inline{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+}
+.tag-item{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+.tag-pill{
+  text-decoration:none;
+}
+.tag-add-form{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.tag-add-inline{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.tag-add-form .input{
+  min-width:280px;
+}
+.tag-remove-form{
+  display:inline-flex;
+}
+.tag-remove{
+  width:26px;
+  height:26px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,0.14);
+  background:rgba(255,255,255,0.06);
+  color:rgba(255,255,255,0.85);
+  cursor:pointer;
+  line-height:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.tag-remove:hover{
+  background:rgba(255,255,255,0.10);
+}
+
+@media (max-width: 720px){
+  .tag-add-form .input{min-width:180px;}
+}
+
+
+/* === Tags manager (chips like language choices) === */
+.tag-manager{
+  width: 100%;
+  margin-top: 10px;
+}
+
+.tag-manager-top{
+  display:flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 10px;
+}
+
+.tag-filter{
+  flex: 1 1 260px;
+  min-width: 240px;
+}
+
+.tag-create{
+  flex: 1 1 300px;
+  min-width: 260px;
+}
+
+.tag-create-row{
+  display:flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.tag-chip-list{
+  display:flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  max-height: 220px;
+  overflow: auto;
+}
+
+.tag-chip{
+  display:inline-flex;
+  align-items:center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tag-chip input{
+  display:none;
+}
+
+.tag-chip span{
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.88);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.tag-chip:hover span{
+  background: rgba(255,255,255,0.10);
+}
+
+.tag-chip input:checked + span{
+  background: rgba(167,139,250,0.18);
+  border-color: rgba(167,139,250,0.45);
+}
+
+.label{
+  display:block;
+  margin-bottom:6px;
+  font-size: 12px;
+}
+
+.hint{
+  margin-top:6px;
+  font-size: 12px;
+}

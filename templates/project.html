@@ -13,6 +13,42 @@
         </span>
         <span class="pill small">👥 {{ owner_followers }} follower{% if owner_followers != 1 %}s{% endif %}</span>
       </div>
+      <div class="tag-row">
+        <div class="tags">
+          {% if tags %}
+            {% for t in tags %}
+              <div class="tag-item">
+                <a class="pill small tag-pill" href="{{ url_for('search', q='#' ~ t[1]) }}">#{{ t[1] }}</a>
+                {% if can_edit_tags %}
+                  <form class="tag-remove-form" method="POST" action="{{ url_for('remove_project_tag', pid=project[0], tag_id=t[0]) }}">
+                    <button class="tag-remove" type="submit" title="Remove tag">×</button>
+                  </form>
+                {% endif %}
+              </div>
+            {% endfor %}
+          {% else %}
+            <span class="muted">No tags yet.</span>
+          {% endif %}
+        </div>
+
+        {% if can_edit_tags %}
+          <form class="tag-add-form" method="POST" action="{{ url_for('add_project_tags', pid=project[0]) }}">
+            <div class="tag-add-inline">
+              <input
+                class="input"
+                name="tags"
+                type="text"
+                placeholder="Add tags (comma or space separated) e.g. flask api backend"
+                autocomplete="off"
+              >
+              <button class="btn btn-ghost" type="submit">Add</button>
+            </div>
+            <div class="muted hint">Owner/Admin only • Allowed: letters, numbers, '_' and '-'</div>
+          </form>
+        {% endif %}
+      </div>
+
+
 
       {% if project_languages and project_languages|length > 0 %}
       <div class="row-sub" style="margin-top:8px;">

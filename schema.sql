@@ -286,6 +286,30 @@ CREATE TABLE project_tags (
 
 CREATE INDEX idx_project_tags_tag ON project_tags(tag_id);
 
+/* ---------------------------------------------------------
+   Seed: default tags (broad starter set)
+   - Safe to re-run (INSERT IGNORE)
+   - Tag format: letters/numbers/_/- only
+   --------------------------------------------------------- */
+INSERT IGNORE INTO tags(name) VALUES
+  -- Popular tech tags
+  ('ai'),('machine_learning'),('data_science'),('backend'),('frontend'),('devops'),
+  ('api'),('database'),('security'),('testing'),('cli'),('opensource'),
+
+  -- Languages / ecosystems (mirrors PROJECT_LANGUAGE_CHOICES, normalized)
+  ('python'),('javascript'),('typescript'),('java'),('c'),('cpp'),('csharp'),('go'),('rust'),
+  ('php'),('ruby'),('kotlin'),('swift'),('dart'),('scala'),('r'),('matlab'),('perl'),
+  ('lua'),('haskell'),('elixir'),('erlang'),('clojure'),('fsharp'),('ocaml'),('julia'),
+  ('html'),('css'),('sass'),('less'),('vue'),('react'),('angular'),('svelte'),
+  ('nodejs'),('express'),('django'),('flask'),('fastapi'),('spring'),('dotnet'),('laravel'),
+  ('rails'),('symfony'),
+  ('sql'),('plsql'),('tsql'),('graphql'),('mongodb'),('redis'),
+  ('android'),('ios'),('react_native'),('flutter'),
+  ('bash'),('powershell'),('docker'),('kubernetes'),('terraform'),('ansible'),
+  ('yaml'),('json'),
+  ('assembly'),('embedded_c'),('verilog'),('vhdl'),
+  ('markdown'),('latex'),('solidity'),('prolog'),('groovy'),('smalltalk');
+
 /* =========================================================
    TABLE: project_activity (journal d’activité)
    ========================================================= */

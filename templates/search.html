@@ -15,6 +15,15 @@
           <span>👤 <a class="link" href="{{ url_for('user_profile', user_id=p.owner_id) }}">{{ p.owner }}</a></span>
           <span>⭐ {{ p.stars }}</span>
         </div>
+        {% if p.tags %}
+          <div class="tags-inline">
+            {% for t in p.tags.split(',') %}
+              <a class="pill small tag-pill" href="{{ url_for('search', q='#' ~ t) }}">#{{ t }}</a>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+
 
         <a class="btn secondary"
            href="{{ url_for('project', pid=p.id) }}">

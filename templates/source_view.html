@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ filepath }} · {{ project.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>{{ filepath }}</h2>
+      <div class="muted small">{{ mime }} · snapshot #{{ snapshot_id }}</div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;">
+      <div class="muted small">
+        <a class="link" href="{{ url_for('source_browser_root', pid=project.id) }}">← Browse source</a>
+      </div>
+
+      <div>
+        <a class="btn btn-secondary" href="{{ url_for('source_download', pid=project.id, filepath=filepath) }}">Download</a>
+      </div>
+    </div>
+
+    <div class="mt">
+      {% if preview is not none %}
+        <pre style="white-space:pre;overflow:auto;padding:14px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.22);">{{ preview }}</pre>
+      {% else %}
+        <div class="muted">Preview not available for this file type.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

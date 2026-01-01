@@ -29,6 +29,8 @@ from routes.project import (
     download_file,
     delete_file,
     delete_project,
+    add_project_tags,
+    remove_project_tag
 )
 
 
@@ -94,6 +96,21 @@ def create_app():
     )
 
     app.add_url_rule(
+        "/project/<int:pid>/tags/add",
+        "add_project_tags",
+        add_project_tags,
+        methods=["POST"],
+    )
+
+    app.add_url_rule(
+        "/project/<int:pid>/tags/<int:tag_id>/remove",
+        "remove_project_tag",
+        remove_project_tag,
+        methods=["POST"],
+    )
+
+
+    app.add_url_rule(
         "/project/<int:pid>/members/add",
         "add_member",
         add_member,
@@ -145,6 +162,8 @@ def create_app():
     )
 
     # ================= SEARCH =================
+    
+    # ================= SEARCH =================
     @app.route("/search")
     @login_required
     def search():
@@ -161,19 +180,68 @@ def create_app():
                 has_next=False
             )
 
-        results = fetchall(
-            """
+        tag_only = q.startswith("#")
+        q_tag = q[1:].strip() if tag_only else q.lstrip("#")
+
+        if tag_only and not q_tag:
+            return render_template(
+                "search.html",
+                user=user,
+                query=q,
+                results=[],
+                page=1,
+                has_next=False
+            )
+
+        if tag_only:
+            sql = """
             SELECT
                 p.id,
                 p.title,
                 p.description,
                 u.username AS owner,
                 u.id AS owner_id,
-                COUNT(s.user_id) AS stars
+                COUNT(DISTINCT s.user_id) AS stars,
+                GROUP_CONCAT(DISTINCT t.name ORDER BY t.name_norm SEPARATOR ',') AS tags
             FROM projects p
             JOIN users u ON u.id = p.owner_id
             LEFT JOIN stars s ON s.project_id = p.id
             LEFT JOIN project_members pm ON pm.project_id = p.id
+            LEFT JOIN project_tags pt ON pt.project_id = p.id
+            LEFT JOIN tags t ON t.id = pt.tag_id
+            WHERE
+                (
+                    p.is_private = 0
+                    OR pm.user_id = %s
+                )
+                AND EXISTS (
+                    SELECT 1
+                    FROM project_tags pt2
+                    JOIN tags t2 ON t2.id = pt2.tag_id
+                    WHERE pt2.project_id = p.id
+                      AND t2.name LIKE %s
+                )
+            GROUP BY p.id
+            ORDER BY stars DESC, p.created_at DESC
+            LIMIT 30
+            """
+            params = (user["id"], f"%{q_tag}%")
+        else:
+            sql = """
+            SELECT
+                p.id,
+                p.title,
+                p.description,
+                u.username AS owner,
+                u.id AS owner_id,
+                COUNT(DISTINCT s.user_id) AS stars,
+                GROUP_CONCAT(DISTINCT t.name ORDER BY t.name_norm SEPARATOR ',') AS tags
+            FROM projects p
+            JOIN users u ON u.id = p.owner_id
+            LEFT JOIN stars s ON s.project_id = p.id
+            LEFT JOIN project_members pm ON pm.project_id = p.id
+            LEFT JOIN project_tags pt ON pt.project_id = p.id
+            LEFT JOIN tags t ON t.id = pt.tag_id
             WHERE
                 (
                     p.is_private = 0
@@ -183,18 +251,27 @@ def create_app():
                     p.title LIKE %s
                     OR p.description LIKE %s
                     OR u.username LIKE %s
+                    OR EXISTS (
+                        SELECT 1
+                        FROM project_tags pt2
+                        JOIN tags t2 ON t2.id = pt2.tag_id
+                        WHERE pt2.project_id = p.id
+                          AND t2.name LIKE %s
+                    )
                 )
             GROUP BY p.id
             ORDER BY stars DESC, p.created_at DESC
             LIMIT 30
-            """,
-            (
+            """
+            params = (
                 user["id"],
                 f"%{q}%",
                 f"%{q}%",
                 f"%{q}%",
-            ),
-        )
+                f"%{q_tag}%",
+            )
+
+        results = fetchall(sql, params)
 
         return render_template(
             "search.html",
@@ -203,7 +280,7 @@ def create_app():
             results=results,
         )
 
-    # ================= ERRORS =================
+# ================= ERRORS =================
     @app.errorhandler(403)
     def forbidden(_):
         return render_template("403.html"), 403

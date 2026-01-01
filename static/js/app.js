@@ -37,3 +37,24 @@ function toggleBox(id){
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeAllModals();
 });
+
+// Tag picker (project page): filter chips by text
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll("[data-tag-manager]").forEach((mgr) => {
+    const inp = mgr.querySelector("[data-tag-filter]");
+    const list = mgr.querySelector("[data-tag-list]");
+    if (!inp || !list) return;
+
+    const items = Array.from(list.querySelectorAll("[data-tag-name]"));
+
+    function applyFilter(){
+      const q = (inp.value || "").trim().toLowerCase();
+      items.forEach((el) => {
+        const name = (el.getAttribute("data-tag-name") || "");
+        el.style.display = (!q || name.includes(q)) ? "inline-flex" : "none";
+      });
+    }
+
+    inp.addEventListener("input", applyFilter);
+  });
+});

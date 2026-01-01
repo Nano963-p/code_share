@@ -8,9 +8,58 @@ from db import fetchone, fetchall, execute
 from utils import (
     login_required, require_project_role, current_user,
     is_project_owner, save_upload, log_activity
+,
+    get_project_role
 )
 
 import shutil
+
+import re
+
+# -----------------------
+# Tags helpers
+# -----------------------
+TAG_RE = re.compile(r"^[a-zA-Z0-9_\-]{1,50}$")
+
+def parse_tags_input(raw: str):
+    """Parse a user input string into a de-duplicated list of tag names.
+    Accepts comma/space separated tags and optional leading '#'.
+    """
+    if not raw:
+        return []
+    # Normalize separators to spaces, then split
+    cleaned = raw.replace(",", " ").replace(";", " ").replace("\n", " ").replace("\t", " ")
+    parts = [p.strip() for p in cleaned.split(" ") if p.strip()]
+    out = []
+    seen = set()
+    for p in parts:
+        if p.startswith("#"):
+            p = p[1:]
+        if not p:
+            continue
+        if len(p) > 50:
+            continue
+        if not TAG_RE.match(p):
+            continue
+        key = p.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(p)
+    return out
+
+def upsert_tag(name: str) -> int:
+    """Insert a tag if needed and return its id."""
+    # MySQL trick: return existing id via LAST_INSERT_ID
+    tag_id = execute(
+        """
+        INSERT INTO tags (name)
+        VALUES (%s)
+        ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), name = VALUES(name)
+        """,
+        (name,),
+    )
+    return tag_id
 
 
 @login_required
@@ -229,6 +278,23 @@ def project(pid: int):
     )
     languages_list = [r["language"] for r in languages]
 
+
+    tags = fetchall(
+        """
+        SELECT t.id, t.name
+        FROM project_tags pt
+        JOIN tags t ON t.id = pt.tag_id
+        WHERE pt.project_id=%s
+        ORDER BY t.name_norm
+        """,
+        (pid,),
+    )
+    tags_list = [(t["id"], t["name"]) for t in tags]
+
+
+    role = get_project_role(pid, uid)
+    can_edit_tags = role in ("owner", "admin")
+
     return render_template(
         "project.html",
         user=u,
@@ -244,7 +310,120 @@ def project(pid: int):
         owner_followers=owner_followers,
         is_following_owner=is_following_owner,
         project_languages=languages_list,
+        tags=tags_list,
+        can_edit_tags=can_edit_tags,
     )
+
+
+
+@login_required
+def add_project_tags(pid: int):
+    u = current_user()
+    uid = u["id"]
+
+    role = get_project_role(pid, uid)
+    if role not in ("owner", "admin"):
+        abort(403)
+
+    # Choice-based tags: select existing tags (tag_ids) and/or create new tags (new_tag).
+    tag_ids_raw = request.form.getlist("tag_ids")  # from <select multiple>
+    new_tag_raw = (request.form.get("new_tag") or "").strip()
+
+    # Backward compatibility (older UI): free text field named "tags"
+    raw = (request.form.get("tags") or "").strip()
+
+    names = []
+    if new_tag_raw:
+        names.extend(parse_tags_input(new_tag_raw))
+    if raw:
+        names.extend(parse_tags_input(raw))
+
+    tag_ids = []
+    for x in tag_ids_raw:
+        try:
+            tag_ids.append(int(x))
+        except Exception:
+            continue
+
+    if not names and not tag_ids:
+        flash("Please select at least one tag, or create a new tag.", "error")
+        return redirect(url_for("project", pid=pid))
+
+    added = 0
+
+    # Add selected existing tag ids (validate existence)
+    if tag_ids:
+        rows = fetchall(
+            "SELECT id FROM tags WHERE id IN (" + ",".join(["%s"] * len(tag_ids)) + ")",
+            tuple(tag_ids),
+        )
+        valid_ids = [r["id"] for r in rows]
+        for tid in valid_ids:
+            try:
+                execute(
+                    "INSERT IGNORE INTO project_tags (project_id, tag_id) VALUES (%s, %s)",
+                    (pid, tid),
+                )
+                added += 1
+            except Exception:
+                continue
+
+    # Create (if needed) and add new tag names
+    for name in names:
+        try:
+            tag_id = upsert_tag(name)
+            execute(
+                "INSERT IGNORE INTO project_tags (project_id, tag_id) VALUES (%s, %s)",
+                (pid, tag_id),
+            )
+            added += 1
+        except Exception:
+            continue
+
+    if added:
+        flash(f"Tags updated (+{added}).", "success")
+    else:
+        flash("No tags were added (they may already exist).", "info")
+
+    return redirect(url_for("project", pid=pid))
+
+
+    added = 0
+    for name in tags:
+        try:
+            tag_id = upsert_tag(name)
+            execute(
+                "INSERT IGNORE INTO project_tags (project_id, tag_id) VALUES (%s, %s)",
+                (pid, tag_id),
+            )
+            added += 1
+        except Exception:
+            # Ignore unexpected duplicates/edge cases; user gets partial success
+            continue
+
+    if added:
+        flash(f"Tags updated (+{added}).", "success")
+    else:
+        flash("No tags were added (they may already exist).", "info")
+
+    return redirect(url_for("project", pid=pid))
+
+
+@login_required
+def remove_project_tag(pid: int, tag_id: int):
+    u = current_user()
+    uid = u["id"]
+
+    role = get_project_role(pid, uid)
+    if role not in ("owner", "admin"):
+        abort(403)
+
+    execute(
+        "DELETE FROM project_tags WHERE project_id=%s AND tag_id=%s",
+        (pid, tag_id),
+    )
+    flash("Tag removed.", "success")
+    return redirect(url_for("project", pid=pid))
 
 
 @login_required
