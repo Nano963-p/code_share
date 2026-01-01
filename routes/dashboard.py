@@ -1,4 +1,4 @@
-from flask import render_template
+from flask import render_template, current_app
 from db import fetchall, fetchone
 from utils import login_required, current_user
 
@@ -52,6 +52,7 @@ def dashboard():
           pa.project_id,
           p.title AS project_title,
           COALESCE(u.username, 'System') AS actor,
+          u.id AS actor_id,
           pa.action,
           pa.created_at
         FROM project_activity pa
@@ -90,6 +91,7 @@ def dashboard():
           c.project_id,
           p.title AS project_title,
           u.username AS author,
+          u.id AS author_id,
           c.message,
           c.created_at
         FROM comments c
@@ -117,4 +119,5 @@ def dashboard():
         activities=activities,
         popular_projects=popular_projects,
         latest_comments=latest_comments,
+        language_choices=current_app.config.get("PROJECT_LANGUAGE_CHOICES", []),
     )

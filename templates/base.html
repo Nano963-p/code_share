@@ -40,8 +40,13 @@
 
           {% if user %}
             <a class="user-menu" href="{{ url_for('profile') }}" aria-label="Profile">
-              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed={{ user.username }}"
-                   alt="{{ user.username }}" class="user-avatar">
+              {% if user.profile_image %}
+                <img src="{{ url_for('uploaded_file', filename=user.profile_image) }}"
+                     alt="{{ user.username }}" class="user-avatar">
+              {% else %}
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed={{ user.username }}"
+                     alt="{{ user.username }}" class="user-avatar">
+              {% endif %}
               <span>{{ user.username }}</span>
               <span class="caret">▼</span>
             </a>

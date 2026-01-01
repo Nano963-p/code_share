@@ -4,7 +4,14 @@
 {% block content %}
 <section class="panel">
   <div class="profile-head">
-    <div class="profile-ava">{{ user.username[0]|upper }}</div>
+    <div class="profile-ava">
+      {% if user.profile_image %}
+        <img src="{{ url_for('uploaded_file', filename=user.profile_image) }}"
+             alt="{{ user.username }}">
+      {% else %}
+        {{ user.username[0]|upper }}
+      {% endif %}
+    </div>
     <div>
       <h1 class="profile-name">{{ user.username }}</h1>
       <div class="muted">{{ user.email }}</div>
@@ -48,7 +55,7 @@
           <div class="dot"></div>
           <div class="activity-body">
             <div class="activity-line">
-              <strong>{{ a.actor }}</strong>
+              <a class="link" href="{{ url_for('user_profile', user_id=a.actor_id) }}"><strong>{{ a.actor }}</strong></a>
               {% if a.action == 'followed' %}
                 <span class="muted"> followed </span>
               {% elif a.action == 'unfollowed' %}
@@ -56,7 +63,7 @@
               {% else %}
                 <span class="muted"> {{ a.action.replace('_',' ') }} </span>
               {% endif %}
-              <strong>{{ a.target }}</strong>
+              <a class="link" href="{{ url_for('user_profile', user_id=a.target_id) }}"><strong>{{ a.target }}</strong></a>
             </div>
             <div class="muted small">{{ a.created_at }}</div>
           </div>

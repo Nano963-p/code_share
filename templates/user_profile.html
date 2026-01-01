@@ -4,7 +4,14 @@
 {% block content %}
 <section class="panel">
   <div class="profile-head">
-    <div class="profile-ava">{{ target.username[0]|upper }}</div>
+    <div class="profile-ava">
+      {% if target.profile_image %}
+        <img src="{{ url_for('uploaded_file', filename=target.profile_image) }}"
+             alt="{{ target.username }}">
+      {% else %}
+        {{ target.username[0]|upper }}
+      {% endif %}
+    </div>
     <div style="flex:1">
       <div class="row row-static" style="justify-content:space-between; align-items:center;">
         <div>

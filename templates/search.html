@@ -12,7 +12,7 @@
         <p>{{ p.description or "No description" }}</p>
 
         <div class="meta">
-          <span>👤 {{ p.owner }}</span>
+          <span>👤 <a class="link" href="{{ url_for('user_profile', user_id=p.owner_id) }}">{{ p.owner }}</a></span>
           <span>⭐ {{ p.stars }}</span>
         </div>
 

@@ -1,5 +1,5 @@
 import os
-from flask import Flask, redirect, url_for, render_template, request
+from flask import Flask, redirect, url_for, render_template, request, send_file, abort
 
 from config import Config
 from db import close_conn, fetchall
@@ -28,6 +28,7 @@ from routes.project import (
     project_stargazers,
     download_file,
     delete_file,
+    delete_project,
 )
 
 
@@ -60,6 +61,16 @@ def create_app():
     app.add_url_rule("/profile", "profile", profile)
     app.add_url_rule("/profile/edit", "edit_profile", edit_profile, methods=["GET", "POST"])
     app.add_url_rule("/users/<int:user_id>", "user_profile", user_profile)
+    @app.route("/uploads/<path:filename>")
+    @login_required
+    def uploaded_file(filename):
+        base = app.config["UPLOAD_FOLDER"]
+        safe_path = os.path.normpath(os.path.join(base, filename))
+        if os.path.commonpath([base, safe_path]) != base:
+            abort(404)
+        if not os.path.exists(safe_path):
+            abort(404)
+        return send_file(safe_path)
     app.add_url_rule("/users/<int:user_id>/follow", "follow_user", follow_user, methods=["POST"])
     app.add_url_rule("/users/<int:user_id>/unfollow", "unfollow_user", unfollow_user, methods=["POST"])
     app.add_url_rule("/users/<int:user_id>/followers", "user_followers", user_followers)
@@ -100,6 +111,14 @@ def create_app():
         "/project/<int:pid>/like",
         "like",
         like,
+        methods=["POST"],
+    )
+
+    # Delete project (owner only)
+    app.add_url_rule(
+        "/project/<int:pid>/delete",
+        "delete_project",
+        delete_project,
         methods=["POST"],
     )
 
@@ -149,6 +168,7 @@ def create_app():
                 p.title,
                 p.description,
                 u.username AS owner,
+                u.id AS owner_id,
                 COUNT(s.user_id) AS stars
             FROM projects p
             JOIN users u ON u.id = p.owner_id

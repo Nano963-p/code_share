@@ -39,3 +39,35 @@ class Config:
     # Cookies
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
+
+    # Project language choices (UI dropdown). Users can also add custom languages.
+    # This list is intentionally broad (common languages/DSLs). It is not exhaustive.
+    PROJECT_LANGUAGE_CHOICES = [
+        # General purpose
+        "Python", "JavaScript", "TypeScript", "Java", "C", "C++", "C#", "Go", "Rust",
+        "PHP", "Ruby", "Kotlin", "Swift", "Dart", "Scala", "R", "MATLAB", "Perl",
+        "Lua", "Haskell", "Elixir", "Erlang", "Clojure", "F#", "OCaml", "Julia",
+
+        # Web / UI
+        "HTML", "CSS", "Sass", "Less", "Vue", "React", "Angular", "Svelte",
+
+        # Backend / frameworks
+        "Node.js", "Express", "Django", "Flask", "FastAPI", "Spring", ".NET", "Laravel",
+        "Rails", "Symfony",
+
+        # Data / query
+        "SQL", "PL/SQL", "T-SQL", "GraphQL", "MongoDB", "Redis",
+
+        # Mobile
+        "Android", "iOS", "React Native", "Flutter",
+
+        # DevOps / scripting
+        "Bash", "PowerShell", "Docker", "Kubernetes", "Terraform", "Ansible",
+        "YAML", "JSON",
+
+        # Low-level / systems
+        "Assembly", "Embedded C", "Verilog", "VHDL",
+
+        # Other / niche
+        "Markdown", "LaTeX", "Solidity", "Prolog", "Groovy", "Smalltalk",
+    ]

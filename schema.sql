@@ -18,6 +18,7 @@ DROP TABLE IF EXISTS followers;
 DROP TABLE IF EXISTS stars;
 DROP TABLE IF EXISTS comments;
 DROP TABLE IF EXISTS files;
+DROP TABLE IF EXISTS project_languages;
 DROP TABLE IF EXISTS project_members;
 DROP TABLE IF EXISTS projects;
 DROP TABLE IF EXISTS role_permissions;
@@ -32,6 +33,7 @@ CREATE TABLE users (
   email VARCHAR(100) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   bio VARCHAR(500) NULL,
+  profile_image VARCHAR(500) NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   -- Normalisation (évite Alice vs alice)
@@ -99,6 +101,32 @@ CREATE TABLE project_members (
 
 CREATE INDEX idx_pm_user ON project_members(user_id);
 CREATE INDEX idx_pm_role ON project_members(project_id, role);
+
+/* =========================================================
+   TABLE: project_languages
+   - A project can use multiple languages
+   ========================================================= */
+CREATE TABLE project_languages (
+  project_id INT NOT NULL,
+  language VARCHAR(50) NOT NULL,
+
+  -- Normalization (avoids "Python" vs " python ")
+  language_norm VARCHAR(50)
+    GENERATED ALWAYS AS (LOWER(TRIM(language))) STORED,
+
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (project_id, language_norm),
+
+  CONSTRAINT fk_pl_project
+    FOREIGN KEY (project_id) REFERENCES projects(id)
+    ON DELETE CASCADE,
+
+  CONSTRAINT chk_language_len CHECK (CHAR_LENGTH(language) BETWEEN 1 AND 50)
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_pl_project ON project_languages(project_id);
+CREATE INDEX idx_pl_language_norm ON project_languages(language_norm);
 
 /* =========================================================
    TABLE: files

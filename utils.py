@@ -32,7 +32,10 @@ def current_user():
     uid = session.get("user_id")
     if not uid:
         return None
-    return fetchone("SELECT id, username, email, created_at FROM users WHERE id=%s", (uid,))
+    return fetchone(
+        "SELECT id, username, email, created_at, profile_image FROM users WHERE id=%s",
+        (uid,),
+    )
 
 
 # -----------------------

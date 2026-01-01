@@ -10,6 +10,8 @@ from utils import (
     is_project_owner, save_upload, log_activity
 )
 
+import shutil
+
 
 @login_required
 def create_project():
@@ -18,20 +20,62 @@ def create_project():
 
     title = (request.form.get("title") or "").strip()
     description = (request.form.get("description") or "").strip()
+
+    # Multi-language support (select multiple + optional custom comma-separated)
+    languages = [
+        (x or "").strip()
+        for x in request.form.getlist("languages")
+        if (x or "").strip()
+    ]
+    custom_langs_raw = (request.form.get("custom_languages") or "").strip()
+    if custom_langs_raw:
+        # Accept comma-separated custom entries
+        for part in custom_langs_raw.split(","):
+            part = (part or "").strip()
+            if part:
+                languages.append(part)
+
+    # Deduplicate (case/space insensitive), keep first occurrence
+    seen = set()
+    languages_clean = []
+    for lang in languages:
+        key = lang.strip().lower()
+        if key and key not in seen:
+            seen.add(key)
+            languages_clean.append(lang.strip())
+
     # HTML checkbox usually submits "on" (or nothing if unchecked)
     is_private = 1 if (request.form.get("is_private") or "").lower() in {"1", "on", "true", "yes"} else 0
+
+    if not languages_clean:
+        flash("Please select at least one programming language (or type custom languages).", "error")
+        return redirect(url_for("dashboard"))
 
     if len(title) < 3:
         flash("Title must be at least 3 characters.", "error")
         return redirect(url_for("dashboard"))
 
+    # Backward-compatible: store the first language in projects.language
+    primary_language = languages_clean[0] if languages_clean else None
+
     pid = execute(
         """
-        INSERT INTO projects (owner_id, title, description, is_private)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO projects (owner_id, title, description, language, is_private)
+        VALUES (%s, %s, %s, %s, %s)
         """,
-        (uid, title, description or None, is_private),
+        (uid, title, description or None, primary_language, is_private),
     )
+
+    # Persist languages (multi-language)
+    for lang in languages_clean:
+        try:
+            execute(
+                "INSERT IGNORE INTO project_languages (project_id, language) VALUES (%s, %s)",
+                (pid, lang),
+            )
+        except Exception:
+            # If a language fails validation (rare), skip it to avoid blocking project creation
+            pass
 
     log_activity(pid, uid, "created_project", "project", pid)
     return redirect(url_for("project", pid=pid))
@@ -142,7 +186,7 @@ def project(pid: int):
 
     files = fetchall(
         """
-        SELECT f.id AS file_id, f.filename, f.uploaded_at, u.username AS uploader
+        SELECT f.id AS file_id, f.filename, f.uploaded_at, u.username AS uploader, u.id AS uploader_id
         FROM files f
         JOIN users u ON u.id=f.uploaded_by
         WHERE f.project_id=%s
@@ -153,7 +197,7 @@ def project(pid: int):
 
     comments = fetchall(
         """
-        SELECT c.id AS comment_id, c.message, c.created_at, u.username
+        SELECT c.id AS comment_id, c.message, c.created_at, u.username, u.id AS user_id
         FROM comments c
         JOIN users u ON u.id=c.user_id
         WHERE c.project_id=%s
@@ -171,8 +215,19 @@ def project(pid: int):
 
     # Convert dict rows to tuples for the template (member[0], member[1], member[2]) etc.
     members_t = [(m["user_id"], m["username"], m["role"]) for m in members]
-    files_t = [(f["file_id"], f["filename"], f["uploaded_at"], f["uploader"]) for f in files]
-    comments_t = [(c["comment_id"], c["message"], c["created_at"], c["username"]) for c in comments]
+    files_t = [(f["file_id"], f["filename"], f["uploaded_at"], f["uploader"], f["uploader_id"]) for f in files]
+    comments_t = [(c["comment_id"], c["message"], c["created_at"], c["username"], c["user_id"]) for c in comments]
+
+    languages = fetchall(
+        """
+        SELECT language
+        FROM project_languages
+        WHERE project_id=%s
+        ORDER BY language_norm
+        """,
+        (pid,),
+    )
+    languages_list = [r["language"] for r in languages]
 
     return render_template(
         "project.html",
@@ -188,6 +243,7 @@ def project(pid: int):
         project_owner_id=project_owner_id,
         owner_followers=owner_followers,
         is_following_owner=is_following_owner,
+        project_languages=languages_list,
     )
 
 
@@ -341,6 +397,39 @@ def delete_file(file_id: int):
 
     flash("File deleted.", "success")
     return redirect(url_for("project", pid=f["project_id"]))
+
+
+@login_required
+def delete_project(pid: int):
+    """Delete an entire project (owner only).
+
+    We rely on FK ON DELETE CASCADE to remove dependent rows (files, members, comments,
+    stars, tags, activities, languages). We also remove the uploads/<pid> directory on disk.
+    """
+    u = current_user()
+    uid = u["id"]
+
+    # Ensure project exists and obtain owner_id for authorization
+    p = fetchone("SELECT id, owner_id FROM projects WHERE id=%s", (pid,))
+    if not p:
+        abort(404)
+
+    if p["owner_id"] != uid:
+        abort(403)
+
+    # Remove uploaded files on disk (if any)
+    upload_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], str(pid))
+    if os.path.isdir(upload_dir):
+        try:
+            shutil.rmtree(upload_dir)
+        except OSError:
+            # Non-fatal; DB deletion still proceeds
+            pass
+
+    # Delete project (cascades to dependent rows)
+    execute("DELETE FROM projects WHERE id=%s", (pid,))
+    flash("Project deleted.", "success")
+    return redirect(url_for("dashboard"))
 
 @login_required
 def project_stargazers(pid: int):

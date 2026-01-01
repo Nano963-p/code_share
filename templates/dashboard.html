@@ -96,10 +96,14 @@
             <div class="dot"></div>
             <div class="activity-body">
               <div class="activity-line">
+                {% if a.actor_id %}
+                  <a class="link" href="{{ url_for('user_profile', user_id=a.actor_id) }}"><strong>{{ a.actor }}</strong></a>
+                {% else %}
                 <strong>{{ a.actor }}</strong>
-                <span class="muted"> {{ a.action.replace('_',' ') }}</span>
-                <a class="link" href="{{ url_for('project', pid=a.project_id) }}">{{ a.project_title }}</a>
-              </div>
+              {% endif %}
+              <span class="muted"> {{ a.action.replace('_',' ') }}</span>
+              <a class="link" href="{{ url_for('project', pid=a.project_id) }}">{{ a.project_title }}</a>
+            </div>
               <div class="muted small">{{ a.created_at }}</div>
             </div>
           </div>
@@ -154,7 +158,7 @@
             <div class="comment-ava">{{ c.author[0]|upper }}</div>
             <div class="comment-body">
               <div class="comment-top">
-                <strong>{{ c.author }}</strong>
+                <a class="link" href="{{ url_for('user_profile', user_id=c.author_id) }}"><strong>{{ c.author }}</strong></a>
                 <span class="muted small">• {{ c.created_at }}</span>
               </div>
               <div class="comment-text">“{{ c.message }}”</div>
@@ -187,6 +191,17 @@
 
     <label>Description</label>
     <textarea name="description" rows="4" placeholder="What is this project about?"></textarea>
+
+    <label>Languages (you can select multiple)</label>
+    <select name="languages" multiple size="8">
+      {% for lang in language_choices %}
+        <option value="{{ lang }}">{{ lang }}</option>
+      {% endfor %}
+    </select>
+    <div class="muted small">Tip: hold Ctrl (Windows) or Cmd (Mac) to select multiple. You can also add custom languages below.</div>
+
+    <label>Custom languages (optional)</label>
+    <input name="custom_languages" type="text" placeholder="e.g. Python, SQL, Docker">
 
     <label class="check">
       <input type="checkbox" name="is_private" value="1">

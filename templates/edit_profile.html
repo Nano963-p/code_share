@@ -8,7 +8,7 @@
     <a class="btn btn-ghost" href="{{ url_for('profile') }}">Back to profile</a>
   </div>
 
-  <form method="POST" action="{{ url_for('edit_profile') }}" class="auth-form" style="margin-top: 10px;">
+  <form method="POST" action="{{ url_for('edit_profile') }}" class="auth-form" style="margin-top: 10px;" enctype="multipart/form-data">
     <label>Username</label>
     <input name="username" required value="{{ user.username }}" autocomplete="username" />
 
@@ -17,8 +17,30 @@
 
     <div class="divider" style="margin: 14px 0; opacity: .35;"></div>
 
-    <div class="muted" style="margin-bottom: 10px;">Change password (optional)</div>
+    <div class="muted" style="margin-bottom: 10px;">Profile photo</div>
+    <div class="profile-photo-row">
+      <div class="profile-ava profile-ava--edit">
+        {% if user.profile_image %}
+          <img src="{{ url_for('uploaded_file', filename=user.profile_image) }}"
+               alt="{{ user.username }}">
+        {% else %}
+          {{ user.username[0]|upper }}
+        {% endif %}
+      </div>
+      <div class="profile-photo-actions">
+        <input type="file" name="profile_image" accept="image/*" />
+        {% if user.profile_image %}
+          <label class="checkbox">
+            <input type="checkbox" name="remove_profile_image" value="1" />
+            Remove current photo
+          </label>
+        {% endif %}
+      </div>
+    </div>
 
+    <div class="divider" style="margin: 14px 0; opacity: .35;"></div>
+
+    <div class="muted" style="margin-bottom: 10px;">Change password (optional)</div>
     <label>Current password</label>
     <input type="password" name="current_password" autocomplete="current-password" placeholder="Required only if changing password" />
 

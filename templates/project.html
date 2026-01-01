@@ -8,11 +8,19 @@
       <h1 class="project-title">{{ project[1] }}</h1>
       <div class="muted owner-line">
         <span>
-          Owner: <strong>{{ project[5] }}</strong>
+          Owner: <a class="link" href="{{ url_for('user_profile', user_id=project_owner_id) }}"><strong>{{ project[5] }}</strong></a>
           {% if project[6] %} • <span class="badge badge-muted">{{ project[6]|capitalize }}</span>{% endif %}
         </span>
         <span class="pill small">👥 {{ owner_followers }} follower{% if owner_followers != 1 %}s{% endif %}</span>
       </div>
+
+      {% if project_languages and project_languages|length > 0 %}
+      <div class="row-sub" style="margin-top:8px;">
+        {% for lang in project_languages %}
+          <span class="badge badge-muted" style="margin-right:6px;">{{ lang }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
       {% if user.id != project_owner_id %}
       <form class="follow-form" method="POST"
             action="{{ url_for(is_following_owner and 'unfollow_user' or 'follow_user', user_id=project_owner_id) }}">
@@ -24,13 +32,25 @@
       {% endif %}
     </div>
 
-    <form method="POST" action="{{ url_for('like', pid=project[0]) }}">
-      <button class="btn {% if user_liked %}btn-secondary{% else %}btn-ghost{% endif %}" type="submit">
-        <i class="fa-solid fa-star"></i>
-        {% if user_liked %}Starred{% else %}Star{% endif %}
-        <span class="pill-num">{{ like_count }}</span>
-      </button>
-    </form>
+    <div class="row" style="gap:10px; align-items:center;">
+      <form method="POST" action="{{ url_for('like', pid=project[0]) }}">
+        <button class="btn {% if user_liked %}btn-secondary{% else %}btn-ghost{% endif %}" type="submit">
+          <i class="fa-solid fa-star"></i>
+          {% if user_liked %}Starred{% else %}Star{% endif %}
+          <span class="pill-num">{{ like_count }}</span>
+        </button>
+      </form>
+
+      {% if is_owner %}
+	      <form method="POST" action="{{ url_for('delete_project', pid=project[0]) }}"
+            onsubmit="return confirm('Delete this project? This will remove the project, members, stars, comments, and files.');">
+	        <button class="btn btn-delete-project" type="submit">
+          <i class="fa-solid fa-trash"></i>
+          Delete Project
+        </button>
+      </form>
+      {% endif %}
+    </div>
   </div>
 
   {% if project[2] %}
@@ -71,7 +91,9 @@
         <div class="row-left">
           <div class="row-icon"><i class="fa-solid fa-user"></i></div>
           <div>
-            <div class="row-title">{{ m[1] }}</div>
+            <div class="row-title">
+              <a class="link" href="{{ url_for('user_profile', user_id=m[0]) }}">{{ m[1] }}</a>
+            </div>
             <div class="row-sub">
               <span class="badge {% if m[2]=='owner' %}badge-owner{% elif m[2]=='admin' %}badge-admin{% else %}badge-muted{% endif %}">
                 {{ m[2]|capitalize }}
@@ -120,7 +142,7 @@
             <div>
               <div class="row-title">{{ f[1] }}</div>
               <div class="row-sub muted small">
-                by <strong>{{ f[3] }}</strong> • {{ f[2] }}
+                by <a class="link" href="{{ url_for('user_profile', user_id=f[4]) }}"><strong>{{ f[3] }}</strong></a> • {{ f[2] }}
               </div>
             </div>
           </div>
@@ -165,7 +187,7 @@
         <div class="comment-ava">{{ c[3][0]|upper }}</div>
         <div class="comment-body">
           <div class="comment-top">
-            <strong>{{ c[3] }}</strong>
+            <a class="link" href="{{ url_for('user_profile', user_id=c[4]) }}"><strong>{{ c[3] }}</strong></a>
             <span class="muted small">• {{ c[2] }}</span>
           </div>
           <div class="comment-text">{{ c[1] }}</div>
