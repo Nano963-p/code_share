@@ -237,7 +237,7 @@ CREATE INDEX idx_followers_follower ON followers(follower_id);
 CREATE TABLE user_activity (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
-  action ENUM('followed','unfollowed') NOT NULL,
+  action VARCHAR(50) NOT NULL,
   target_user_id INT NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -317,14 +317,7 @@ CREATE TABLE project_activity (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   project_id INT NOT NULL,
   user_id INT NULL,
-  action ENUM(
-    'created_project',
-    'joined_project',
-    'left_project',
-    'uploaded_file',
-    'commented',
-    'starred'
-  ) NOT NULL,
+  action VARCHAR(50) NOT NULL,
   entity_type ENUM('project','member','file','comment','star') NOT NULL,
   entity_id BIGINT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -724,9 +724,66 @@ footer{
   outline:none;
 }
 .modal-form textarea{resize:vertical}
-.check{display:flex; align-items:center; gap:10px; margin-top:6px}
+.modal-form select{
+  padding:12px 14px;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,0.14);
+  background: rgba(0,0,0,0.22);
+  color:var(--text);
+  outline:none;
+}
+.modal-form select option{background:#0b0b14; color:var(--text)}
+.check{display:flex; align-items:center; justify-content:flex-start; gap:10px; margin-top:6px}
 .check input{transform:scale(1.1)}
 .modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:8px}
+
+/* ========== FORM PAGES (Edit project, etc.) ========== */
+.form-page{
+  max-width: 980px;
+  margin: 32px auto 60px;
+  padding: 0 16px;
+}
+.form-page-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom: 14px;
+}
+.form-page-title{font-size: 28px; font-weight: 900; margin: 0}
+.form-card{
+  background: var(--panelSolid);
+  border:1px solid rgba(255,255,255,0.14);
+  border-radius: 18px;
+  box-shadow: 0 20px 70px rgba(0,0,0,0.45);
+  overflow:hidden;
+}
+.form-card-body{padding: 18px}
+.form-grid{display:grid; grid-template-columns: 1fr; gap: 12px}
+.form-grid label{color:rgba(255,255,255,0.75); font-size:13px}
+.form-grid input:not([type="checkbox"]):not([type="radio"]), .form-grid textarea, .form-grid select{
+  width:100%;
+  padding:12px 14px;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,0.14);
+  background: rgba(0,0,0,0.22);
+  color:var(--text);
+  outline:none;
+}
+.form-grid textarea{resize:vertical}
+.form-grid select option{background:#0b0b14; color:var(--text)}
+.form-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top: 6px;
+}
+
+@media (max-width: 640px){
+  .form-page-title{font-size: 22px}
+  .form-actions{flex-direction: column-reverse; align-items:stretch}
+  .form-actions .btn{width:100%}
+}
 
 /* Errors */
 .error{
@@ -1006,4 +1063,117 @@ footer{
 .hint{
   margin-top:6px;
   font-size: 12px;
+}
+
+
+/* === FIX: Create Project modal not hidden by dashboard/header === */
+.modal,
+.create-project-modal,
+.modal-dialog {
+  position: fixed !important;
+  top: 80px !important; /* below navbar */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1050 !important;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+
+/* === UX: Visible scrollbars inside modals and long lists === */
+/* Firefox */
+.modal,
+.create-project-modal,
+.modal-dialog,
+.modal *,
+.create-project-modal *,
+.modal-dialog * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(180, 130, 255, 0.65) rgba(255, 255, 255, 0.06);
+}
+
+/* Chromium / Safari */
+.modal::-webkit-scrollbar,
+.create-project-modal::-webkit-scrollbar,
+.modal-dialog::-webkit-scrollbar,
+.modal *::-webkit-scrollbar,
+.create-project-modal *::-webkit-scrollbar,
+.modal-dialog *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.modal::-webkit-scrollbar-track,
+.create-project-modal::-webkit-scrollbar-track,
+.modal-dialog::-webkit-scrollbar-track,
+.modal *::-webkit-scrollbar-track,
+.create-project-modal *::-webkit-scrollbar-track,
+.modal-dialog *::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+}
+
+.modal::-webkit-scrollbar-thumb,
+.create-project-modal::-webkit-scrollbar-thumb,
+.modal-dialog::-webkit-scrollbar-thumb,
+.modal *::-webkit-scrollbar-thumb,
+.create-project-modal *::-webkit-scrollbar-thumb,
+.modal-dialog *::-webkit-scrollbar-thumb {
+  background: rgba(180, 130, 255, 0.65);
+  border-radius: 10px;
+  border: 2px solid rgba(15, 10, 30, 0.6);
+}
+
+.modal::-webkit-scrollbar-thumb:hover,
+.create-project-modal::-webkit-scrollbar-thumb:hover,
+.modal-dialog::-webkit-scrollbar-thumb:hover,
+.modal *::-webkit-scrollbar-thumb:hover,
+.create-project-modal *::-webkit-scrollbar-thumb:hover,
+.modal-dialog *::-webkit-scrollbar-thumb:hover {
+  background: rgba(200, 165, 255, 0.85);
+}
+
+/* Make sure the language select shows its scrollbar clearly */
+.modal select[multiple],
+.create-project-modal select[multiple] {
+  scrollbar-gutter: stable both-edges;
+}
+
+
+/* === FIX: Align "Private project" checkbox with other fields (Edit Project) === */
+.form-row,
+.form-group {
+  width: 100%;
+}
+
+.private-project-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.private-project-row label {
+  margin: 0;
+  cursor: pointer;
+}
+
+.private-project-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #a855f7;
+}
+
+
+/* FIX: prevent form controls styling from affecting checkboxes */
+.form-grid input[type="checkbox"],
+.form-grid input[type="radio"]{
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }

@@ -1,0 +1,33 @@
+.edit-project-form{
+  max-width: 720px;
+  margin: 0 auto;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+.form-group{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select{
+  width:100%;
+}
+
+.checkbox-group{
+  flex-direction:row;
+  align-items:center;
+}
+
+.form-actions{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:8px;
+}
+
+.small{font-size:.9em;}

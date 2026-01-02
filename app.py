@@ -22,6 +22,7 @@ from routes.profile import (
 from routes.project import (
     project,
     create_project,
+    edit_project,
     add_member,
     remove_member,
     like,
@@ -92,6 +93,13 @@ def create_app():
         "/project/<int:pid>",
         "project",
         project,
+        methods=["GET", "POST"],
+    )
+
+    app.add_url_rule(
+        "/project/<int:pid>/edit",
+        "edit_project",
+        edit_project,
         methods=["GET", "POST"],
     )
 

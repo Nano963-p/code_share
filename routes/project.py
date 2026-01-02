@@ -131,6 +131,113 @@ def create_project():
 
 
 @login_required
+def edit_project(pid: int):
+    """Edit basic project metadata + multi-language selection.
+    Allowed roles: owner, admin.
+    """
+    u = current_user()
+    uid = u["id"]
+
+    role = get_project_role(pid, uid)
+    if role not in ("owner", "admin"):
+        abort(403)
+
+    p = fetchone(
+        """
+        SELECT id, owner_id, title, description, is_private, status
+        FROM projects
+        WHERE id=%s
+        """,
+        (pid,),
+    )
+    if not p:
+        abort(404)
+
+    current_lang_rows = fetchall(
+        """
+        SELECT language
+        FROM project_languages
+        WHERE project_id=%s
+        ORDER BY language_norm
+        """,
+        (pid,),
+    )
+    current_languages = [r["language"] for r in current_lang_rows]
+
+    if request.method == "POST":
+        title = (request.form.get("title") or "").strip()
+        description = (request.form.get("description") or "").strip()
+        status = (request.form.get("status") or "active").strip().lower()
+        if status not in ("active", "archived"):
+            status = "active"
+
+        languages = [
+            (x or "").strip()
+            for x in request.form.getlist("languages")
+            if (x or "").strip()
+        ]
+        custom_langs_raw = (request.form.get("custom_languages") or "").strip()
+        if custom_langs_raw:
+            for part in custom_langs_raw.split(","):
+                part = (part or "").strip()
+                if part:
+                    languages.append(part)
+
+        # Deduplicate (case/space insensitive)
+        seen = set()
+        languages_clean = []
+        for lang in languages:
+            key = lang.strip().lower()
+            if key and key not in seen:
+                seen.add(key)
+                languages_clean.append(lang.strip())
+
+        is_private = 1 if (request.form.get("is_private") or "").lower() in {"1", "on", "true", "yes"} else 0
+
+        if len(title) < 3:
+            flash("Title must be at least 3 characters.", "error")
+            return redirect(url_for("edit_project", pid=pid))
+
+        if not languages_clean:
+            flash("Please select at least one programming language (or type custom languages).", "error")
+            return redirect(url_for("edit_project", pid=pid))
+
+        primary_language = languages_clean[0]
+
+        execute(
+            """
+            UPDATE projects
+            SET title=%s, description=%s, language=%s, is_private=%s, status=%s
+            WHERE id=%s
+            """,
+            (title, description or None, primary_language, is_private, status, pid),
+        )
+
+        # Replace language list
+        execute("DELETE FROM project_languages WHERE project_id=%s", (pid,))
+        for lang in languages_clean:
+            try:
+                execute(
+                    "INSERT IGNORE INTO project_languages (project_id, language) VALUES (%s, %s)",
+                    (pid, lang),
+                )
+            except Exception:
+                continue
+
+        log_activity(pid, uid, "updated_project", "project", pid)
+        flash("Project updated.", "success")
+        return redirect(url_for("project", pid=pid))
+
+    return render_template(
+        "edit_project.html",
+        user=u,
+        project=p,
+        current_languages=current_languages,
+        language_choices=current_app.config.get("PROJECT_LANGUAGE_CHOICES", []),
+    )
+
+
+@login_required
 def project(pid: int):
     u = current_user()
     uid = u["id"]
@@ -294,6 +401,7 @@ def project(pid: int):
 
     role = get_project_role(pid, uid)
     can_edit_tags = role in ("owner", "admin")
+    can_edit_project = role in ("owner", "admin")
 
     return render_template(
         "project.html",
@@ -312,6 +420,7 @@ def project(pid: int):
         project_languages=languages_list,
         tags=tags_list,
         can_edit_tags=can_edit_tags,
+        can_edit_project=can_edit_project,
     )
 
 
