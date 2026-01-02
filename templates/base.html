@@ -11,9 +11,22 @@
   {% block extra_css %}{% endblock %}
 </head>
 
-<body class="{% if request.endpoint in ['login','signup'] %}auth-body{% endif %}">
+<body class="{% if request.endpoint in ['login','signup'] %}auth-body{% endif %} starfield-body">
 
-  {% if request.endpoint not in ['login','signup'] %}
+  <canvas id="starfield"></canvas>
+
+  {% if request.endpoint in ['login','signup'] %}
+    <div class="auth-page">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-messages">
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+  {% else %}
   <header>
     <div class="container">
       <div class="header-content">
@@ -58,8 +71,6 @@
       </div>
     </div>
   </header>
-  {% endif %}
-
   <main>
     <div class="container">
       {% with messages = get_flashed_messages(with_categories=true) %}
@@ -71,12 +82,15 @@
           </div>
         {% endif %}
       {% endwith %}
+  {% endif %}
 
       {% block content %}{% endblock %}
+
+  {% if request.endpoint in ['login','signup'] %}
+    </div>
+  {% else %}
     </div>
   </main>
-
-  {% if request.endpoint not in ['login','signup'] %}
   <footer>
     <div class="container">
       <p>&copy; 2025 CodeShare. All rights reserved.</p>
@@ -85,6 +99,7 @@
   {% endif %}
 
   <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/starfield.js') }}" defer></script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>

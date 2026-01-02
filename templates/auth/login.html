@@ -2,30 +2,31 @@
 {% block title %}Login · CodeShare{% endblock %}
 
 {% block content %}
-<div class="auth-wrap">
-  <div class="panel auth-card">
-    <div class="auth-brand">
-      <img src="{{ url_for('static', filename='img/saturn.png') }}" alt="Saturn">
-      <div>
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-logo">🪐</div>
+      <div class="auth-header-text">
         <h1>Welcome back</h1>
-        <div class="muted">Login to your CodeShare account</div>
+        <p>Login to your CodeShare account</p>
       </div>
     </div>
 
     <form method="POST" action="{{ url_for('login') }}" class="auth-form">
-      <label>Username</label>
-      <input name="username" required autocomplete="username">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input id="username" name="username" required autocomplete="username" placeholder="Enter your username">
+      </div>
 
-      <label>Password</label>
-      <input type="password" name="password" required autocomplete="current-password">
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input id="password" type="password" name="password" required autocomplete="current-password" placeholder="Enter your password">
+      </div>
 
-      <button class="btn btn-primary w100" type="submit">Login</button>
+      <button class="auth-btn" type="submit">Login</button>
     </form>
 
-    <div class="auth-foot">
-      <span class="muted">No account?</span>
-      <a class="link" href="{{ url_for('signup') }}">Create one</a>
+    <div class="auth-footer">
+      No account? <a href="{{ url_for('signup') }}">Create one</a>
     </div>
   </div>
-</div>
 {% endblock %}
