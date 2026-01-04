@@ -607,8 +607,16 @@ footer{
   background: rgba(255,255,255,0.06);
   color:#fff;
 }
-.btn-danger{border-color: rgba(255,75,75,0.35); color: rgba(255,200,200,0.95)}
-.btn-danger:hover{background: rgba(255,75,75,0.12)}
+.btn-danger{
+  background: linear-gradient(135deg, #ff6b81, #ff4757);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 22px rgba(255, 71, 87, 0.35);
+}
+.btn-danger:hover{
+  background: linear-gradient(135deg, #ff4757, #ff2e4d);
+  box-shadow: 0 14px 30px rgba(255, 71, 87, 0.45);
+}
 
 /* Delete Project (Owner only) */
 .btn-delete-project{

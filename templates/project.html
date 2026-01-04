@@ -125,6 +125,26 @@
         <button class="btn btn-secondary" type="submit">Add</button>
       </form>
       <div class="muted small">Owner can add/remove members. Admin/member permissions are enforced by backend rules.</div>
+
+      <hr class="section-divider">
+{% if transfer_candidates and transfer_candidates|length > 0 %}
+<form class="inline-form" method="POST" action="{{ url_for('transfer_owner', pid=project[0]) }}"
+      onsubmit="return confirm('Transfer ownership? The current owner will become admin.');">
+  <label class="muted small" style="min-width:160px;">Transfer ownership to</label>
+  <select class="select-wide" name="new_owner_id" required>
+    {% for m in transfer_candidates %}
+      <option value="{{ m[0] }}">{{ m[1] }} ({{ m[2] }})</option>
+    {% endfor %}
+  </select>
+  <button class="btn btn-danger" type="submit">Transfer</button>
+</form>
+<div class="muted small">Only the current owner can transfer ownership. The database trigger will sync roles automatically.</div>
+{% else %}
+<div class="muted small" style="margin-top:8px;">
+  Transfer ownership is unavailable because there are no other project members yet.
+</div>
+{% endif %}
+
     </div>
     {% endif %}
 

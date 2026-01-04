@@ -421,6 +421,7 @@ def project(pid: int):
         tags=tags_list,
         can_edit_tags=can_edit_tags,
         can_edit_project=can_edit_project,
+        transfer_candidates=[m for m in members_t if m[0] != p["owner_id"]],
     )
 
 
@@ -600,6 +601,54 @@ def remove_member(pid: int, member_id: int):
     )
     log_activity(pid, uid, "left_project", "member", member_id)
     flash("Member removed.", "success")
+    return redirect(url_for("project", pid=pid))
+
+
+
+
+@login_required
+def transfer_owner(pid: int):
+    """Transfer project ownership to another existing member.
+    Owner-only action. This updates projects.owner_id; DB triggers handle role sync.
+    """
+    u = current_user()
+    uid = u["id"]
+
+    if not is_project_owner(pid, uid):
+        abort(403)
+
+    new_owner_id = request.form.get("new_owner_id", type=int)
+    if not new_owner_id:
+        abort(400)
+
+    # Cannot transfer to self
+    if new_owner_id == uid:
+        flash("Selected user is already the owner.", "info")
+        return redirect(url_for("project", pid=pid))
+
+    # Ensure the project exists and current owner matches (defensive)
+    p = fetchone("SELECT id, owner_id FROM projects WHERE id=%s", (pid,))
+    if not p:
+        abort(404)
+    if p["owner_id"] != uid:
+        abort(403)
+
+    # Ensure new owner is a member of this project
+    is_member = fetchone(
+        "SELECT 1 AS x FROM project_members WHERE project_id=%s AND user_id=%s",
+        (pid, new_owner_id),
+    )
+    if not is_member:
+        flash("The selected user must be a member of the project.", "danger")
+        return redirect(url_for("project", pid=pid))
+
+    # Update owner_id; triggers will:
+    # - demote old owner -> admin
+    # - promote new owner -> owner
+    execute("UPDATE projects SET owner_id=%s WHERE id=%s", (new_owner_id, pid))
+
+    log_activity(pid, uid, "transferred_ownership", "project", new_owner_id)
+    flash("Project ownership transferred.", "success")
     return redirect(url_for("project", pid=pid))
 
 

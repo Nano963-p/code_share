@@ -31,7 +31,8 @@ from routes.project import (
     delete_file,
     delete_project,
     add_project_tags,
-    remove_project_tag
+    remove_project_tag,
+    transfer_owner
 )
 
 
@@ -94,6 +95,14 @@ def create_app():
         "project",
         project,
         methods=["GET", "POST"],
+    )
+
+    # Transfer project ownership (owner only)
+    app.add_url_rule(
+        "/project/<int:pid>/transfer-owner",
+        "transfer_owner",
+        transfer_owner,
+        methods=["POST"],
     )
 
     app.add_url_rule(
