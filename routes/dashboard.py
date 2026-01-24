@@ -75,11 +75,12 @@ def dashboard():
         """
         SELECT
           p.id, p.title,
+          p.downloads,
           (SELECT COUNT(*) FROM stars s WHERE s.project_id=p.id) AS stars,
           (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id=p.id) AS members
         FROM projects p
         WHERE p.is_private=0
-        ORDER BY stars DESC, p.created_at DESC
+        ORDER BY p.downloads DESC, stars DESC, p.created_at DESC
         LIMIT 5
         """
     )

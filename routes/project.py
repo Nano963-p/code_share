@@ -19,7 +19,7 @@ import re
 # -----------------------
 # Tags helpers
 # -----------------------
-TAG_RE = re.compile(r"^[a-zA-Z0-9_\-]{1,50}$")
+TAG_RE = re.compile(r"^[a-zA-Z0-9_\-]{1,50}$") #regle de validation des tags
 
 def parse_tags_input(raw: str):
     """Parse a user input string into a de-duplicated list of tag names.
@@ -55,7 +55,7 @@ def upsert_tag(name: str) -> int:
         """
         INSERT INTO tags (name)
         VALUES (%s)
-        ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), name = VALUES(name)
+        ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), name = VALUES(name) 
         """,
         (name,),
     )
@@ -700,6 +700,8 @@ def download_file(file_id: int):
     abs_path = os.path.join(current_app.root_path, f["filepath"].replace("/", os.sep))
     if not os.path.exists(abs_path):
         abort(404)
+
+    execute("UPDATE projects SET downloads = downloads + 1 WHERE id=%s", (f["project_id"],))
 
     return send_file(abs_path, as_attachment=True, download_name=f["filename"])
 

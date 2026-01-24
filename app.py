@@ -2,7 +2,7 @@ import os
 from flask import Flask, redirect, url_for, render_template, request, send_file, abort
 
 from config import Config
-from db import close_conn, fetchall
+from db import close_conn, fetchall, fetchone
 from utils import login_required, current_user
 
 # Route handlers
@@ -194,7 +194,9 @@ def create_app():
                 query="",
                 results=[],
                 page=1,
-                has_next=False
+                has_next=False,
+                tag_count=None,
+                tag_label=None,
             )
 
         tag_only = q.startswith("#")
@@ -207,7 +209,9 @@ def create_app():
                 query=q,
                 results=[],
                 page=1,
-                has_next=False
+                has_next=False,
+                tag_count=0,
+                tag_label=q_tag,
             )
 
         if tag_only:
@@ -287,6 +291,33 @@ def create_app():
                 f"%{q}%",
                 f"%{q_tag}%",
             )
+        # --- Tag counter (for #tag searches) ---
+        tag_count = None
+        tag_label = None
+        if tag_only:
+            tag_row = fetchone(
+                "SELECT id, name FROM tags WHERE name_norm = LOWER(TRIM(%s))",
+                (q_tag,),
+            )
+            if tag_row:
+                tag_label = tag_row["name"]
+                cnt_row = fetchone(
+                    """
+                    SELECT COUNT(DISTINCT pt.project_id) AS c
+                    FROM project_tags pt
+                    JOIN projects p ON p.id = pt.project_id
+                    LEFT JOIN project_members pm ON pm.project_id = p.id
+                    WHERE pt.tag_id = %s
+                      AND (p.is_private = 0 OR pm.user_id = %s)
+                    """,
+                    (tag_row["id"], user["id"]),
+                )
+                tag_count = (cnt_row or {}).get("c", 0)
+            else:
+                # Tag not found in DB (still show the label the user typed)
+                tag_label = q_tag
+                tag_count = 0
+
 
         results = fetchall(sql, params)
 
@@ -295,6 +326,10 @@ def create_app():
             user=user,
             query=q,
             results=results,
+            page=1,
+            has_next=False,
+            tag_count=tag_count,
+            tag_label=tag_label,
         )
 
 # ================= ERRORS =================

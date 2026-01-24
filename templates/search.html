@@ -4,6 +4,11 @@
 {% block content %}
 <h2>Search results for "{{ query }}"</h2>
 
+{% if tag_count is not none %}
+  <p class="muted">Tag <strong>#{{ tag_label }}</strong> : {{ tag_count }} projet(s)</p>
+{% endif %}
+
+
 {% if results %}
   <div class="project-grid">
     {% for p in results %}

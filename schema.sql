@@ -63,6 +63,7 @@ CREATE TABLE projects (
   language VARCHAR(50) NULL,
   is_private BOOLEAN NOT NULL DEFAULT FALSE,
   status ENUM('active','archived') NOT NULL DEFAULT 'active',
+  downloads INT NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     ON UPDATE CURRENT_TIMESTAMP,
@@ -77,6 +78,7 @@ CREATE TABLE projects (
 CREATE INDEX idx_projects_owner ON projects(owner_id);
 CREATE INDEX idx_projects_visibility ON projects(is_private);
 CREATE INDEX idx_projects_status ON projects(status);
+CREATE INDEX idx_projects_downloads ON projects(downloads);
 CREATE INDEX idx_projects_created_at ON projects(created_at);
 
 /* =========================================================
@@ -563,3 +565,7 @@ FROM project_members
 WHERE role = 'owner'
 GROUP BY project_id
 HAVING COUNT(*) > 1;
+
+--Ces triggers rendent impossible d’avoir un projet sans owner, avec deux owners, 
+--ou avec un owner incohérent — 
+--la base de données garantit les règles, même si l’application fait une erreur.
