@@ -49,12 +49,14 @@
             {% if p.id != user.id %}
               {% if p.i_follow %}
                 <form method="POST" action="{{ url_for('unfollow_user', user_id=p.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button class="btn btn-secondary" type="submit">
                     <i class="fa-solid fa-user-minus"></i> Unfollow
                   </button>
                 </form>
               {% else %}
                 <form method="POST" action="{{ url_for('follow_user', user_id=p.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button class="btn btn-primary" type="submit">
                     <i class="fa-solid fa-user-plus"></i> Follow
                   </button>

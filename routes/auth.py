@@ -26,6 +26,7 @@ def login():
         flash("Invalid username or password.", "error")
         return redirect(url_for("login"))
 
+    session.clear()
     session["user_id"] = u["id"]
     return redirect(url_for("dashboard"))
 
@@ -87,6 +88,7 @@ def signup():
             flash("Could not create account due to a database error.", "error")
         return redirect(url_for("signup"))
 
+    session.clear()
     session["user_id"] = uid
     return redirect(url_for("dashboard"))
 

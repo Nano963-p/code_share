@@ -21,6 +21,7 @@
                 <a class="pill small tag-pill" href="{{ url_for('search', q='#' ~ t[1]) }}">#{{ t[1] }}</a>
                 {% if can_edit_tags %}
                   <form class="tag-remove-form" method="POST" action="{{ url_for('remove_project_tag', pid=project[0], tag_id=t[0]) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button class="tag-remove" type="submit" title="Remove tag">×</button>
                   </form>
                 {% endif %}
@@ -33,6 +34,7 @@
 
         {% if can_edit_tags %}
           <form class="tag-add-form" method="POST" action="{{ url_for('add_project_tags', pid=project[0]) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="tag-add-inline">
               <input
                 class="input"
@@ -60,6 +62,7 @@
       {% if user.id != project_owner_id %}
       <form class="follow-form" method="POST"
             action="{{ url_for(is_following_owner and 'unfollow_user' or 'follow_user', user_id=project_owner_id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button class="btn {% if is_following_owner %}btn-ghost{% else %}btn-secondary{% endif %}" type="submit">
           <i class="fa-solid fa-user-plus"></i>
           {% if is_following_owner %}Unfollow{% else %}Follow{% endif %}
@@ -70,6 +73,7 @@
 
     <div class="row" style="gap:10px; align-items:center;">
       <form method="POST" action="{{ url_for('like', pid=project[0]) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button class="btn {% if user_liked %}btn-secondary{% else %}btn-ghost{% endif %}" type="submit">
           <i class="fa-solid fa-star"></i>
           {% if user_liked %}Starred{% else %}Star{% endif %}
@@ -87,6 +91,7 @@
       {% if is_owner %}
 	      <form method="POST" action="{{ url_for('delete_project', pid=project[0]) }}"
             onsubmit="return confirm('Delete this project? This will remove the project, members, stars, comments, and files.');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 	        <button class="btn btn-delete-project" type="submit">
           <i class="fa-solid fa-trash"></i>
           Delete Project
@@ -117,6 +122,7 @@
     {% if is_owner %}
     <div id="add-member-box" class="collapsible hidden">
       <form class="inline-form" method="POST" action="{{ url_for('add_member', pid=project[0]) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input name="username" placeholder="Username" required>
         <select name="role">
           <option value="member">Member</option>
@@ -130,6 +136,7 @@
 {% if transfer_candidates and transfer_candidates|length > 0 %}
 <form class="inline-form" method="POST" action="{{ url_for('transfer_owner', pid=project[0]) }}"
       onsubmit="return confirm('Transfer ownership? The current owner will become admin.');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label class="muted small" style="min-width:160px;">Transfer ownership to</label>
   <select class="select-wide" name="new_owner_id" required>
     {% for m in transfer_candidates %}
@@ -168,6 +175,7 @@
         <div class="row-right">
           {% if is_owner and m[2] != 'owner' %}
           <form method="POST" action="{{ url_for('remove_member', pid=project[0], member_id=m[0]) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="btn btn-ghost btn-danger" type="submit">
               Remove
             </button>
@@ -185,6 +193,7 @@
     </div>
 
     <form class="upload" method="POST" enctype="multipart/form-data" action="{{ url_for('project', pid=project[0]) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="file" name="file" required>
       <button class="btn btn-secondary" type="submit">
         Upload
@@ -218,6 +227,7 @@
             {% if is_owner %}
             <form method="POST" action="{{ url_for('delete_file', file_id=f[0]) }}"
                   onsubmit="return confirm('Delete this file?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button class="btn btn-ghost btn-danger" type="submit">Delete</button>
             </form>
             {% endif %}
@@ -237,6 +247,7 @@
   </div>
 
   <form class="comment-form" method="POST" action="{{ url_for('project', pid=project[0]) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <textarea name="message" rows="3" placeholder="Write a comment…" required></textarea>
     <div class="comment-actions">
       <button class="btn btn-primary" type="submit">Post Comment</button>

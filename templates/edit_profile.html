@@ -9,6 +9,7 @@
   </div>
 
   <form method="POST" action="{{ url_for('edit_profile') }}" class="auth-form" style="margin-top: 10px;" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label>Username</label>
     <input name="username" required value="{{ user.username }}" autocomplete="username" />
 

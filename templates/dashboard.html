@@ -16,9 +16,10 @@
           <a class="btn btn-secondary" href="{{ url_for('edit_profile') }}">
             Edit Profile
           </a>
-          <a class="btn btn-ghost" href="{{ url_for('logout') }}">
-            Logout
-          </a>
+          <form method="POST" action="{{ url_for('logout') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-ghost" type="submit">Logout</button>
+          </form>
         </div>
       </div>
     </div>
@@ -188,6 +189,7 @@
   </div>
 
   <form class="modal-form" method="POST" action="{{ url_for('create_project') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label>Title</label>
     <input name="title" type="text" minlength="3" required placeholder="e.g. Awesome App">
 

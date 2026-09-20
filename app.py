@@ -1,5 +1,8 @@
 import os
 from flask import Flask, redirect, url_for, render_template, request, send_file, abort
+from flask_wtf.csrf import CSRFProtect, CSRFError
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 from config import Config
 from db import close_conn, fetchall, fetchone
@@ -49,6 +52,22 @@ def create_app():
     if not app.config.get("DB_PASSWORD"):
         raise RuntimeError("Set DB_PASSWORD in .env.")
 
+    CSRFProtect(app)
+    limiter = Limiter(get_remote_address, app=app, default_limits=[])
+
+    @app.errorhandler(CSRFError)
+    def csrf_error(error):
+        return render_template("request_error.html", title="Please refresh the page",
+                               message="Your form expired or could not be verified. Refresh the page and try again."), 400
+
+    @app.errorhandler(429)
+    def too_many_requests(error):
+        response = error.get_response()
+        response.set_data(render_template("request_error.html", title="Too many sign-in attempts",
+                                         message="Please wait before trying again. Your account has not been changed."))
+        response.content_type = "text/html; charset=utf-8"
+        return response
+
     # Ensure upload directory exists
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
@@ -61,9 +80,11 @@ def create_app():
         return redirect(url_for("dashboard"))
 
     # ================= AUTH =================
-    app.add_url_rule("/login", "login", login, methods=["GET", "POST"])
+    app.add_url_rule("/login", "login", limiter.limit(
+        app.config["LOGIN_RATE_LIMIT"], methods=["POST"]
+    )(login), methods=["GET", "POST"])
     app.add_url_rule("/signup", "signup", signup, methods=["GET", "POST"])
-    app.add_url_rule("/logout", "logout", logout)
+    app.add_url_rule("/logout", "logout", logout, methods=["POST"])
 
     # ================= MAIN =================
     app.add_url_rule("/dashboard", "dashboard", dashboard)

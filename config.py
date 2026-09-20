@@ -40,6 +40,9 @@ class Config:
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
+    LOGIN_RATE_LIMIT = os.getenv("LOGIN_RATE_LIMIT", "5 per minute;30 per hour")
+    RATELIMIT_STORAGE_URI = os.getenv("RATELIMIT_STORAGE_URI", "memory://")
+    RATELIMIT_HEADERS_ENABLED = True
 
     # Project language choices (UI dropdown). Users can also add custom languages.
     # This list is intentionally broad (common languages/DSLs). It is not exhaustive.

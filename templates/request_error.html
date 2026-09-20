@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · CodeShare{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>{{ title }}</h1>
+  <p>{{ message }}</p>
+  <a class="btn btn-primary" href="{{ url_for('login') }}">Return to sign in</a>
+</section>
+{% endblock %}

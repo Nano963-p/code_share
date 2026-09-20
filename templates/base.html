@@ -63,7 +63,10 @@
               <span>{{ user.username }}</span>
               <span class="caret">▼</span>
             </a>
-            <a class="btn btn-primary" href="{{ url_for('logout') }}">Logout</a>
+            <form method="POST" action="{{ url_for('logout') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-primary" type="submit">Logout</button>
+            </form>
           {% else %}
             <a class="btn btn-primary" href="{{ url_for('login') }}">Login</a>
           {% endif %}
