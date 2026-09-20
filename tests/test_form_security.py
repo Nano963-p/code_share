@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from app import create_app
 from config import Config
@@ -17,6 +17,9 @@ class FormSecurityTests(unittest.TestCase):
             self.app = create_app()
         self.app.config.update(TESTING=True)
         self.client = self.app.test_client()
+        connection = patch("db.get_conn", return_value=MagicMock())
+        connection.start()
+        self.addCleanup(connection.stop)
 
     def token(self, client=None):
         response = (client or self.client).get("/login")

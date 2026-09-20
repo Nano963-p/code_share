@@ -34,13 +34,12 @@ Open http://127.0.0.1:5000. This command starts a development server.
 .\.venv\Scripts\python.exe -B -m unittest discover -s tests -v
 ```
 
-These tests use temporary files and mocked database calls; they do not change
+These tests use temporary files, mocked calls, and an in-memory SQLite test adapter; they do not change
 the local database. Both file routes enforce private-project membership and
 serve project uploads as attachments. Only current profile images are inline.
 
 The previously committed database password needs rotation by the database
 administrator; removing it from the current code does not erase Git history.
-Transaction improvements are pending.
 The ignore rules prevent new uploads and caches being added; previously tracked
 files remain in Git until a separate cleanup.
 
@@ -61,3 +60,29 @@ RATELIMIT_STORAGE_URI defaults to memory:// for local single-process development
 These counters reset on restart and are not shared across workers. Production
 must use shared storage, for example redis://localhost:6379/0 (install the Redis
 extra with pip install "Flask-Limiter[redis]==4.1.1").
+
+## Project transactions and file recovery
+
+Project POST actions commit their database changes and activity records together.
+Failures roll back the operation instead of retaining partial language lists,
+project metadata, or activity records. Project-ID mutations acquire a row lock
+to serialize uploads with project deletion. This is not a migration: the
+existing InnoDB tables and cascading foreign keys are still required.
+
+Uploads use exclusive file creation, so duplicate names do not overwrite other
+uploads. Empty files and partial writes are cleaned up. A database statement
+failure removes the newly saved upload after rollback. If the connection fails
+during commit, the outcome may be uncertain: bytes are retained and the failure
+is logged, so a possibly committed file record does not lose its contents.
+
+File and project deletion remove database records before deleting registered
+files from storage. A SQL or commit failure leaves the stored files intact.
+Disk cleanup failures are logged and shown as warnings; deleted records cannot
+be downloaded through the application. Unregistered files and empty directories
+are not recursively deleted.
+
+There is no atomic transaction spanning MySQL and disk. A process crash or disk
+cleanup failure can leave orphaned bytes. Administrators should reconcile stored
+paths against `files.filepath` and `users.profile_image` before manually removing
+any orphan. Cleanup is not automatically retried. Profile-photo replacement and
+follow/unfollow transactions are outside this project-focused change.

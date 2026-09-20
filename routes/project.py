@@ -1,18 +1,16 @@
 import os
 from flask import (
     render_template, request, redirect, url_for, flash, abort,
-    send_file, session, current_app
+    session, current_app
 )
 
-from db import fetchone, fetchall, execute
+from db import fetchone, fetchall, execute, transactional, after_commit, after_rollback
 from utils import (
     login_required, require_project_role, current_user,
-    is_project_owner, save_upload, log_activity
-,
-    get_project_role, resolve_upload_path, send_upload
+    is_project_owner, save_upload, log_activity,
+    get_project_role, resolve_upload_path, send_upload, cleanup_upload
 )
 
-import shutil
 
 import re
 
@@ -62,7 +60,18 @@ def upsert_tag(name: str) -> int:
     return tag_id
 
 
+def validate_project_input(title, description, languages):
+    if not 3 <= len(title) <= 100:
+        return "Title must be between 3 and 100 characters."
+    if len(description) > 2000:
+        return "Description must be at most 2000 characters."
+    if not languages or any(not 1 <= len(lang) <= 50 for lang in languages):
+        return "Select at least one language; each language must be at most 50 characters."
+    return None
+
+
 @login_required
+@transactional
 def create_project():
     u = current_user()
     uid = u["id"]
@@ -100,8 +109,9 @@ def create_project():
         flash("Please select at least one programming language (or type custom languages).", "error")
         return redirect(url_for("dashboard"))
 
-    if len(title) < 3:
-        flash("Title must be at least 3 characters.", "error")
+    validation_error = validate_project_input(title, description, languages_clean)
+    if validation_error:
+        flash(validation_error, "error")
         return redirect(url_for("dashboard"))
 
     # Backward-compatible: store the first language in projects.language
@@ -117,20 +127,17 @@ def create_project():
 
     # Persist languages (multi-language)
     for lang in languages_clean:
-        try:
-            execute(
-                "INSERT IGNORE INTO project_languages (project_id, language) VALUES (%s, %s)",
-                (pid, lang),
-            )
-        except Exception:
-            # If a language fails validation (rare), skip it to avoid blocking project creation
-            pass
+        execute(
+            "INSERT INTO project_languages (project_id, language) VALUES (%s, %s)",
+            (pid, lang),
+        )
 
     log_activity(pid, uid, "created_project", "project", pid)
     return redirect(url_for("project", pid=pid))
 
 
 @login_required
+@transactional
 def edit_project(pid: int):
     """Edit basic project metadata + multi-language selection.
     Allowed roles: owner, admin.
@@ -194,12 +201,9 @@ def edit_project(pid: int):
 
         is_private = 1 if (request.form.get("is_private") or "").lower() in {"1", "on", "true", "yes"} else 0
 
-        if len(title) < 3:
-            flash("Title must be at least 3 characters.", "error")
-            return redirect(url_for("edit_project", pid=pid))
-
-        if not languages_clean:
-            flash("Please select at least one programming language (or type custom languages).", "error")
+        validation_error = validate_project_input(title, description, languages_clean)
+        if validation_error:
+            flash(validation_error, "error")
             return redirect(url_for("edit_project", pid=pid))
 
         primary_language = languages_clean[0]
@@ -216,13 +220,10 @@ def edit_project(pid: int):
         # Replace language list
         execute("DELETE FROM project_languages WHERE project_id=%s", (pid,))
         for lang in languages_clean:
-            try:
-                execute(
-                    "INSERT IGNORE INTO project_languages (project_id, language) VALUES (%s, %s)",
-                    (pid, lang),
-                )
-            except Exception:
-                continue
+            execute(
+                "INSERT INTO project_languages (project_id, language) VALUES (%s, %s)",
+                (pid, lang),
+            )
 
         log_activity(pid, uid, "updated_project", "project", pid)
         flash("Project updated.", "success")
@@ -238,6 +239,7 @@ def edit_project(pid: int):
 
 
 @login_required
+@transactional
 def project(pid: int):
     u = current_user()
     uid = u["id"]
@@ -277,6 +279,8 @@ def project(pid: int):
                 flash(str(e), "error")
                 return redirect(url_for("project", pid=pid))
 
+            saved_path = os.path.join(current_app.root_path, relpath)
+            after_rollback(lambda: cleanup_upload(saved_path))
             fid = execute(
                 """
                 INSERT INTO files (project_id, uploaded_by, filename, filepath, filesize, sha256)
@@ -292,6 +296,9 @@ def project(pid: int):
         msg = (request.form.get("message") or "").strip()
         if msg:
             require_project_role(pid, "member")
+            if len(msg) > 1000:
+                flash("Comments must be at most 1000 characters.", "error")
+                return redirect(url_for("project", pid=pid))
             cid = execute(
                 "INSERT INTO comments (project_id, user_id, message) VALUES (%s, %s, %s)",
                 (pid, uid, msg),
@@ -427,6 +434,7 @@ def project(pid: int):
 
 
 @login_required
+@transactional
 def add_project_tags(pid: int):
     u = current_user()
     uid = u["id"]
@@ -452,7 +460,7 @@ def add_project_tags(pid: int):
     for x in tag_ids_raw:
         try:
             tag_ids.append(int(x))
-        except Exception:
+        except ValueError:
             continue
 
     if not names and not tag_ids:
@@ -469,47 +477,20 @@ def add_project_tags(pid: int):
         )
         valid_ids = [r["id"] for r in rows]
         for tid in valid_ids:
-            try:
-                execute(
-                    "INSERT IGNORE INTO project_tags (project_id, tag_id) VALUES (%s, %s)",
-                    (pid, tid),
-                )
-                added += 1
-            except Exception:
-                continue
+            execute(
+                "INSERT IGNORE INTO project_tags (project_id, tag_id) VALUES (%s, %s)",
+                (pid, tid),
+            )
+            added += 1
 
     # Create (if needed) and add new tag names
     for name in names:
-        try:
-            tag_id = upsert_tag(name)
-            execute(
-                "INSERT IGNORE INTO project_tags (project_id, tag_id) VALUES (%s, %s)",
-                (pid, tag_id),
-            )
-            added += 1
-        except Exception:
-            continue
-
-    if added:
-        flash(f"Tags updated (+{added}).", "success")
-    else:
-        flash("No tags were added (they may already exist).", "info")
-
-    return redirect(url_for("project", pid=pid))
-
-
-    added = 0
-    for name in tags:
-        try:
-            tag_id = upsert_tag(name)
-            execute(
-                "INSERT IGNORE INTO project_tags (project_id, tag_id) VALUES (%s, %s)",
-                (pid, tag_id),
-            )
-            added += 1
-        except Exception:
-            # Ignore unexpected duplicates/edge cases; user gets partial success
-            continue
+        tag_id = upsert_tag(name)
+        execute(
+            "INSERT IGNORE INTO project_tags (project_id, tag_id) VALUES (%s, %s)",
+            (pid, tag_id),
+        )
+        added += 1
 
     if added:
         flash(f"Tags updated (+{added}).", "success")
@@ -520,6 +501,7 @@ def add_project_tags(pid: int):
 
 
 @login_required
+@transactional
 def remove_project_tag(pid: int, tag_id: int):
     u = current_user()
     uid = u["id"]
@@ -537,6 +519,7 @@ def remove_project_tag(pid: int, tag_id: int):
 
 
 @login_required
+@transactional
 def add_member(pid: int):
     u = current_user()
     uid = u["id"]
@@ -577,6 +560,7 @@ def add_member(pid: int):
 
 
 @login_required
+@transactional
 def remove_member(pid: int, member_id: int):
     u = current_user()
     uid = u["id"]
@@ -607,6 +591,7 @@ def remove_member(pid: int, member_id: int):
 
 
 @login_required
+@transactional
 def transfer_owner(pid: int):
     """Transfer project ownership to another existing member.
     Owner-only action. This updates projects.owner_id; DB triggers handle role sync.
@@ -653,6 +638,7 @@ def transfer_owner(pid: int):
 
 
 @login_required
+@transactional
 def like(pid: int):
     u = current_user()
     uid = u["id"]
@@ -707,6 +693,7 @@ def download_file(file_id: int):
 
 
 @login_required
+@transactional
 def delete_file(file_id: int):
     u = current_user()
     uid = u["id"]
@@ -728,22 +715,19 @@ def delete_file(file_id: int):
 
     abs_path = os.path.join(current_app.root_path, f["filepath"].replace("/", os.sep))
     execute("DELETE FROM files WHERE id=%s", (file_id,))
-    if os.path.exists(abs_path):
-        try:
-            os.remove(abs_path)
-        except OSError:
-            pass
+    after_commit(lambda: cleanup_upload(abs_path, notify=True))
 
     flash("File deleted.", "success")
     return redirect(url_for("project", pid=f["project_id"]))
 
 
 @login_required
+@transactional
 def delete_project(pid: int):
     """Delete an entire project (owner only).
 
     We rely on FK ON DELETE CASCADE to remove dependent rows (files, members, comments,
-    stars, tags, activities, languages). We also remove the uploads/<pid> directory on disk.
+    stars, tags, activities, languages). Registered files are removed after commit.
     """
     u = current_user()
     uid = u["id"]
@@ -756,16 +740,12 @@ def delete_project(pid: int):
     if p["owner_id"] != uid:
         abort(403)
 
-    # Remove uploaded files on disk (if any)
-    upload_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], str(pid))
-    if os.path.isdir(upload_dir):
-        try:
-            shutil.rmtree(upload_dir)
-        except OSError:
-            # Non-fatal; DB deletion still proceeds
-            pass
-
-    # Delete project (cascades to dependent rows)
+    # Delete metadata first. Files remain intact if SQL or commit fails.
+    # Clean only registered files, never recursively follow an upload directory.
+    files = fetchall("SELECT filepath FROM files WHERE project_id=%s", (pid,))
+    for file in files:
+        path = os.path.join(current_app.root_path, file["filepath"].replace("/", os.sep))
+        after_commit(lambda path=path: cleanup_upload(path, notify=True))
     execute("DELETE FROM projects WHERE id=%s", (pid,))
     flash("Project deleted.", "success")
     return redirect(url_for("dashboard"))

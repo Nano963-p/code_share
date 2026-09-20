@@ -100,6 +100,22 @@ def send_upload(path: str, *, download_name=None, mimetype=None):
     return response
 
 
+def cleanup_upload(path: str, *, notify=False):
+    """Best-effort cleanup, only inside upload storage; failures are visible."""
+    base = os.path.realpath(current_app.config["UPLOAD_FOLDER"])
+    resolved = os.path.realpath(path)
+    try:
+        if os.path.commonpath([base, resolved]) != base or resolved == base:
+            raise OSError("Refusing cleanup outside upload storage")
+        os.remove(resolved)
+    except FileNotFoundError:
+        return
+    except (OSError, ValueError):
+        current_app.logger.exception("Upload cleanup failed for %s; manual cleanup required", path)
+        if notify:
+            flash("Deleted from the app, but a stored file could not be removed. Contact the administrator.", "error")
+
+
 def allowed_file(filename: str) -> bool:
     if "." not in filename:
         return False
@@ -137,21 +153,27 @@ def save_upload(project_id: int, file_storage):
     folder = ensure_project_upload_dir(project_id)
     dst = os.path.join(folder, filename)
 
-    # If file exists, make a unique name
-    if os.path.exists(dst):
-        name, ext = os.path.splitext(filename)
-        i = 2
-        while True:
-            candidate = f"{name}_{i}{ext}"
-            dst = os.path.join(folder, candidate)
-            if not os.path.exists(dst):
-                filename = candidate
-                break
+    # Exclusive creation prevents simultaneous uploads overwriting each other.
+    name, ext = os.path.splitext(filename)
+    i = 1
+    while True:
+        try:
+            stream = open(dst, "xb")
+            break
+        except FileExistsError:
             i += 1
-
-    file_storage.save(dst)
-    size = os.path.getsize(dst)
-    digest = sha256_file(dst)
+            filename = f"{name}_{i}{ext}"
+            dst = os.path.join(folder, filename)
+    try:
+        with stream:
+            file_storage.save(stream)
+        size = os.path.getsize(dst)
+        if not 0 < size <= current_app.config["MAX_CONTENT_LENGTH"]:
+            raise ValueError("File must be non-empty and within the upload size limit.")
+        digest = sha256_file(dst)
+    except BaseException:
+        cleanup_upload(dst)
+        raise
 
     # Store relative path in DB (portable)
     relpath = os.path.relpath(dst, current_app.root_path).replace("\\", "/")
