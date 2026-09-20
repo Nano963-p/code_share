@@ -3,7 +3,7 @@ import os
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from flask import session, redirect, url_for, flash, abort, current_app, request
+from flask import session, redirect, url_for, flash, abort, current_app, request, send_file
 
 from db import fetchone, execute
 
@@ -76,6 +76,30 @@ def is_project_owner(project_id: int, user_id: int) -> bool:
 # -----------------------
 # Upload helpers
 # -----------------------
+def resolve_upload_path(path: str) -> str:
+    """Resolve an upload path and reject escapes, including symlinks."""
+    base = os.path.realpath(current_app.config["UPLOAD_FOLDER"])
+    resolved = os.path.realpath(os.path.join(base, path))
+    try:
+        contained = os.path.commonpath([base, resolved]) == base
+    except ValueError:
+        contained = False
+    if not contained or not os.path.isfile(resolved):
+        abort(404)
+    return resolved
+
+
+def send_upload(path: str, *, download_name=None, mimetype=None):
+    response = send_file(
+        path, as_attachment=download_name is not None,
+        download_name=download_name, mimetype=mimetype,
+    )
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Content-Security-Policy"] = "sandbox; default-src 'none'"
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
+
+
 def allowed_file(filename: str) -> bool:
     if "." not in filename:
         return False

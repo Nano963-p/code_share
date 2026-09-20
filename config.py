@@ -1,18 +1,18 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 
 class Config:
     # Flask
-    SECRET_KEY = os.getenv("SECRET_KEY", "REDACTED")
+    SECRET_KEY = os.getenv("SECRET_KEY")
 
     # MySQL
     DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
     DB_PORT = int(os.getenv("DB_PORT", "3306"))
     DB_USER = os.getenv("DB_USER", "root")
-    DB_PASSWORD = os.getenv("DB_PASSWORD", "REDACTED")
+    DB_PASSWORD = os.getenv("DB_PASSWORD")
     DB_NAME = os.getenv("DB_NAME", "code_share")
 
     # Uploads
@@ -39,6 +39,7 @@ class Config:
     # Cookies
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
 
     # Project language choices (UI dropdown). Users can also add custom languages.
     # This list is intentionally broad (common languages/DSLs). It is not exhaustive.

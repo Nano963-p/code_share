@@ -3,7 +3,7 @@ from flask import Flask, redirect, url_for, render_template, request, send_file,
 
 from config import Config
 from db import close_conn, fetchall, fetchone
-from utils import login_required, current_user
+from utils import login_required, current_user, resolve_upload_path, send_upload
 
 # Route handlers
 from routes.auth import login, signup, logout
@@ -43,6 +43,11 @@ def create_app():
         static_folder="static"
     )
     app.config.from_object(Config)
+    secret = app.config.get("SECRET_KEY")
+    if not secret or len(secret) < 32:
+        raise RuntimeError("Set SECRET_KEY to a random secret of at least 32 characters in .env.")
+    if not app.config.get("DB_PASSWORD"):
+        raise RuntimeError("Set DB_PASSWORD in .env.")
 
     # Ensure upload directory exists
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
@@ -68,13 +73,23 @@ def create_app():
     @app.route("/uploads/<path:filename>")
     @login_required
     def uploaded_file(filename):
-        base = app.config["UPLOAD_FOLDER"]
-        safe_path = os.path.normpath(os.path.join(base, filename))
-        if os.path.commonpath([base, safe_path]) != base:
+        safe_path = resolve_upload_path(filename)
+        # Only current profile photos are served inline, with a fixed image MIME.
+        if filename.startswith("avatars/"):
+            photo = fetchone("SELECT id FROM users WHERE profile_image=%s", (filename,))
+            mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                    "gif": "image/gif", "webp": "image/webp"}.get(
+                        filename.rsplit(".", 1)[-1].lower())
+            if not photo or not mime:
+                abort(404)
+            return send_upload(safe_path, mimetype=mime)
+
+        # Reuse the normal download endpoint's project authorization.
+        relpath = os.path.relpath(safe_path, app.root_path).replace("\\", "/")
+        record = fetchone("SELECT id FROM files WHERE filepath=%s", (relpath,))
+        if not record:
             abort(404)
-        if not os.path.exists(safe_path):
-            abort(404)
-        return send_file(safe_path)
+        return download_file(record["id"])
     app.add_url_rule("/users/<int:user_id>/follow", "follow_user", follow_user, methods=["POST"])
     app.add_url_rule("/users/<int:user_id>/unfollow", "unfollow_user", unfollow_user, methods=["POST"])
     app.add_url_rule("/users/<int:user_id>/followers", "user_followers", user_followers)
@@ -350,4 +365,4 @@ def create_app():
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(debug=True)
+    app.run(debug=False)

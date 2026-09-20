@@ -9,7 +9,7 @@ from utils import (
     login_required, require_project_role, current_user,
     is_project_owner, save_upload, log_activity
 ,
-    get_project_role
+    get_project_role, resolve_upload_path, send_upload
 )
 
 import shutil
@@ -697,13 +697,13 @@ def download_file(file_id: int):
     if f["is_private"]:
         require_project_role(f["project_id"], "member")
 
-    abs_path = os.path.join(current_app.root_path, f["filepath"].replace("/", os.sep))
-    if not os.path.exists(abs_path):
-        abort(404)
+    abs_path = resolve_upload_path(
+        os.path.join(current_app.root_path, f["filepath"].replace("/", os.sep))
+    )
 
     execute("UPDATE projects SET downloads = downloads + 1 WHERE id=%s", (f["project_id"],))
 
-    return send_file(abs_path, as_attachment=True, download_name=f["filename"])
+    return send_upload(abs_path, download_name=f["filename"])
 
 
 @login_required
