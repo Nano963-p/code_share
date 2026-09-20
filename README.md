@@ -19,8 +19,9 @@ a secret of at least 32 characters and a database password. Keep `.env` private.
 Changing the secret signs out existing sessions. Enable `SESSION_COOKIE_SECURE`
 when deploying with HTTPS; leave it false for local HTTP.
 
-**Do not run `schema.sql` against an existing database: it drops application tables.**
-Versioned migrations are still pending.
+Use `python manage_db.py init --database code_share` for a new database.
+For existing data, follow the [backup and baseline instructions](docs/database.md)
+before applying migrations. The old destructive `schema.sql` is now disabled.
 
 ```powershell
 .\.venv\Scripts\python.exe -B -m flask --app app:create_app run --host 127.0.0.1 --port 5000
