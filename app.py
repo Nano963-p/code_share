@@ -11,6 +11,7 @@ from utils import login_required, current_user, resolve_upload_path, send_upload
 # Route handlers
 from routes.auth import login, signup, logout
 from routes.dashboard import dashboard
+from routes.source import source_browser
 from routes.profile import (
     profile,
     edit_profile,
@@ -119,6 +120,7 @@ def create_app():
     app.add_url_rule("/users/<int:user_id>/stars", "user_stars", user_stars)
 
     # ================= PROJECTS =================
+    app.add_url_rule("/project/<int:pid>/source", "source_browser", source_browser)
     app.add_url_rule(
         "/projects/create",
         "create_project",

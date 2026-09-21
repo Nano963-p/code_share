@@ -312,10 +312,54 @@ def restore(source, database, uploads):
     print(f"Restore verified: {database}; uploads: {uploads}. Application configuration was not changed.")
 
 
+def orphan_inventory(database, uploads):
+    uploads = Path(uploads).resolve()
+    if not uploads.is_dir():
+        raise ValueError("Upload directory does not exist.")
+    with connect(database) as conn:
+        references = {(ROOT / stored).resolve() for stored, in rows(conn, "SELECT filepath FROM files")}
+        references.update((uploads / stored).resolve() for stored, in rows(
+            conn, "SELECT profile_image FROM users WHERE profile_image IS NOT NULL"))
+    files = []
+    for path in uploads.rglob("*"):
+        if path.is_symlink() or not path.resolve().is_relative_to(uploads):
+            raise ValueError("Symlinks/junctions in upload storage must be inspected manually.")
+        if path.is_file() and path.resolve() not in references:
+            files.append(path)
+    return sorted(files), sorted(path for path in references if not path.is_file())
+
+
+def quarantine_orphans(database, uploads, destination=None):
+    uploads = Path(uploads).resolve()
+    orphans, missing = orphan_inventory(database, uploads)
+    print(f"Unreferenced files: {len(orphans)}; missing referenced files: {len(missing)}")
+    for path in orphans:
+        print("Unreferenced:", path.relative_to(uploads))
+    for path in missing:
+        print("Missing:", path)
+    if destination is None:
+        print("Dry run only; no files moved.")
+        return
+    if missing:
+        raise ValueError("Repair missing references before quarantining possible recovery copies.")
+    destination = Path(destination).resolve()
+    if destination.exists() or destination.is_relative_to(uploads):
+        raise ValueError("Quarantine must be a new directory outside upload storage.")
+    destination.mkdir(parents=True, exist_ok=False)
+    manifest = {"database": database, "source": str(uploads), "files": {
+        path.relative_to(uploads).as_posix(): digest(path) for path in orphans}}
+    (destination / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    for path in orphans:
+        target = destination / "files" / path.relative_to(uploads)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(path), str(target))
+    print("Moved to recoverable quarantine:", destination)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    for command in ("status", "init", "migrate", "baseline", "backup", "restore"):
+    for command in ("status", "init", "migrate", "baseline", "backup", "restore", "orphans"):
         sub = commands.add_parser(command)
         sub.add_argument("--database", required=command in {"init", "restore"}, default=Config.DB_NAME, type=identifier)
         if command in {"migrate", "baseline", "backup"}:
@@ -327,6 +371,10 @@ def main():
         if command == "restore":
             sub.add_argument("--backup", required=True)
             sub.add_argument("--uploads", required=True)
+        if command == "orphans":
+            sub.add_argument("--uploads", default=Config.UPLOAD_FOLDER)
+            sub.add_argument("--quarantine", help="Move unreferenced files into this NEW directory; omit for dry run.")
+            sub.add_argument("--maintenance-confirmed", action="store_true")
     args = parser.parse_args()
     try:
         if args.command == "init":
@@ -338,6 +386,10 @@ def main():
             backup(args.database, args.uploads, args.output)
         elif args.command == "restore":
             restore(args.backup, args.database, args.uploads)
+        elif args.command == "orphans":
+            if args.quarantine and not args.maintenance_confirmed:
+                raise ValueError("Stop all writers and pass --maintenance-confirmed before moving files.")
+            quarantine_orphans(args.database, args.uploads, args.quarantine)
         else:
             with connect(args.database) as conn:
                 applied = history(conn)

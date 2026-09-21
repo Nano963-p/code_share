@@ -203,6 +203,7 @@
 
     <div class="panel-head mt">
       <h2>Files</h2>
+      <a class="btn btn-secondary" href="{{ url_for('source_browser', pid=project[0]) }}">Browse files</a>
     </div>
 
     {% if files and files|length > 0 %}
@@ -223,6 +224,7 @@
             <a class="btn btn-ghost" href="{{ url_for('download_file', file_id=f[0]) }}">
               Download
             </a>
+            <a class="btn btn-ghost" href="{{ url_for('source_browser', pid=project[0], file=f[0]) }}">Preview</a>
 
             {% if is_owner %}
             <form method="POST" action="{{ url_for('delete_file', file_id=f[0]) }}"

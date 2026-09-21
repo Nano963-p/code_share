@@ -1,77 +1,36 @@
 {% extends "base.html" %}
-{% block title %}Source · {{ project.title }}{% endblock %}
-
+{% block title %}Files · {{ project.title }}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/source.css') }}">{% endblock %}
 {% block content %}
-<div class="container">
-  <div class="panel">
-    <div class="panel-head">
-      <h2>Source · {{ project.title }}</h2>
-      <div class="muted small">Latest snapshot #{{ snapshot_id }}</div>
-    </div>
-
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;">
-      <div class="muted small">
-        <a class="link" href="{{ url_for('project', pid=project.id) }}">← Back to project</a>
-      </div>
-
-      <div class="muted small">
-        {% if cur_path %}
-          <a class="link" href="{{ url_for('source_browser_root', pid=project.id) }}">root</a>
-          {% for c in crumbs %}
-            / <a class="link" href="{{ url_for('source_browser', pid=project.id, subpath=c.path) }}">{{ c.name }}</a>
-          {% endfor %}
-        {% else %}
-          root
-        {% endif %}
-      </div>
-    </div>
-
-    <div class="list mt">
-      {% if cur_path %}
-        <a class="row" href="{{ url_for('source_browser', pid=project.id, subpath=cur_path.rsplit('/', 1)[0]) if '/' in cur_path else url_for('source_browser_root', pid=project.id) }}">
-          <div class="row-left">
-            <div class="row-icon"><i class="fa-solid fa-arrow-up"></i></div>
-            <div>
-              <div class="row-title">..</div>
-              <div class="row-sub muted small">Parent directory</div>
-            </div>
-          </div>
-        </a>
+<div class="source-heading">
+  <div><h1>{{ project.title }}</h1><p class="muted">Browse files and read code without downloading.</p></div>
+  <a class="btn btn-ghost" href="{{ url_for('project', pid=project.id) }}">Back to project</a>
+</div>
+<div class="source-layout">
+  <aside class="panel" aria-label="Project files">
+    <h2>Files</h2>
+    <ul class="source-files">
+    {% for file in files %}
+      <li><a href="{{ url_for('source_browser', pid=project.id, file=file.id) }}" {% if selected and selected.id == file.id %}aria-current="page"{% endif %}>{{ '▣' if file.filename.lower().endswith('.zip') else '▤' }} {{ file.filename }}</a></li>
+    {% else %}<li class="muted">No files uploaded yet.</li>{% endfor %}
+    </ul>
+  </aside>
+  <section class="panel source-content" aria-label="File preview">
+    {% if selected %}
+      <div class="source-heading"><h2>{{ display_name }}</h2><a class="btn btn-secondary" href="{{ url_for('download_file', file_id=selected.id) }}">{{ 'Download ZIP' if selected.filename.lower().endswith('.zip') else 'Download' }}</a></div>
+      {% if selected.filename.lower().endswith('.zip') %}
+        <nav class="source-heading" aria-label="Archive navigation">
+          <a class="link" href="{{ url_for('source_browser', pid=project.id, file=selected.id) }}">Archive root</a>
+          {% if member %}<a class="link" href="{{ url_for('source_browser', pid=project.id, file=selected.id, path=parent) }}">Up one folder</a>{% endif %}
+        </nav>
+        <ul class="source-files">
+          {% for entry in entries %}<li><a href="{{ url_for('source_browser', pid=project.id, file=selected.id, path=entry.path) }}">{{ '▸' if entry.is_dir else '▤' }} {{ entry.name }}{% if not entry.is_dir %} <small class="muted">{{ entry.size }} bytes</small>{% endif %}</a></li>
+          {% else %}{% if not error %}<li class="muted">This folder is empty.</li>{% endif %}{% endfor %}
+        </ul>
       {% endif %}
-
-      {% for item in children %}
-        {% if item.is_dir %}
-          <a class="row" href="{{ url_for('source_browser', pid=project.id, subpath=item.path) }}">
-            <div class="row-left">
-              <div class="row-icon"><i class="fa-solid fa-folder"></i></div>
-              <div>
-                <div class="row-title">{{ item.name }}</div>
-                <div class="row-sub muted small">Folder</div>
-              </div>
-            </div>
-          </a>
-        {% else %}
-          <a class="row" href="{{ url_for('source_view', pid=project.id, filepath=item.path) }}">
-            <div class="row-left">
-              <div class="row-icon"><i class="fa-solid fa-file"></i></div>
-              <div>
-                <div class="row-title">{{ item.name }}</div>
-                <div class="row-sub muted small">
-                  {{ item.mime or "file" }}{% if item.filesize %} • {{ item.filesize }} bytes{% endif %}
-                </div>
-              </div>
-            </div>
-            <div class="row-right">
-              <a class="btn btn-ghost" href="{{ url_for('source_download', pid=project.id, filepath=item.path) }}" onclick="event.stopPropagation();">
-                Download
-              </a>
-            </div>
-          </a>
-        {% endif %}
-      {% else %}
-        <div class="empty muted">No files found in this folder.</div>
-      {% endfor %}
-    </div>
-  </div>
+      {% if error %}<p class="alert alert-error" role="status">{{ error }}</p>{% endif %}
+      {% if preview is not none %}<article class="{{ 'readme-preview' if mode == 'markdown' else '' }}">{{ preview }}</article>{% endif %}
+    {% else %}<p class="muted">Select a file to preview its code, or open a ZIP to browse its folders.</p>{% endif %}
+  </section>
 </div>
 {% endblock %}

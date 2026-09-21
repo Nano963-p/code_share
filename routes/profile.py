@@ -1,11 +1,14 @@
 import re
 import os
+import uuid
+import warnings
+from PIL import Image, UnidentifiedImageError
 
-from flask import render_template, redirect, url_for, flash, abort, request, current_app
+from flask import render_template, redirect, url_for, flash, abort, request, current_app, session
 from werkzeug.utils import secure_filename
 
-from db import fetchone, fetchall, execute
-from utils import login_required, current_user, hash_password, verify_password
+from db import fetchone, fetchall, execute, transactional, after_commit, after_rollback
+from utils import login_required, current_user, hash_password, verify_password, cleanup_upload
 
 
 _USERNAME_RE = re.compile(r"^[a-zA-Z0-9_]{3,30}$")
@@ -31,33 +34,31 @@ def _save_profile_image(user_id: int, file_storage) -> str:
     if ext not in _IMAGE_EXTENSIONS:
         raise ValueError("Profile photo must be a PNG, JPG, GIF, or WEBP image.")
 
+    # Decode and re-encode static photos; extensions alone do not validate images.
+    file_storage.stream.seek(0, os.SEEK_END)
+    if file_storage.stream.tell() > 10 * 1024 * 1024:
+        raise ValueError("Profile photo must be at most 10 MB.")
+    file_storage.stream.seek(0)
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(file_storage.stream) as image:
+                if image.width * image.height > 20_000_000:
+                    raise ValueError("Profile photo is too large (maximum 20 million pixels).")
+                image.load()
+                image.thumbnail((1024, 1024))
+                photo = image.convert("RGBA")
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
+        raise ValueError("Please upload a valid image.") from exc
     folder = _profile_upload_dir(user_id)
-    dst = os.path.join(folder, filename)
-
-    if os.path.exists(dst):
-        name, extension = os.path.splitext(filename)
-        i = 2
-        while True:
-            candidate = f"{name}_{i}{extension}"
-            dst = os.path.join(folder, candidate)
-            if not os.path.exists(dst):
-                filename = candidate
-                break
-            i += 1
-
-    file_storage.save(dst)
+    dst = os.path.join(folder, uuid.uuid4().hex + ".png")
+    try:
+        with open(dst, "xb") as output:
+            photo.save(output, format="PNG")
+    except BaseException:
+        cleanup_upload(dst)
+        raise
     return os.path.relpath(dst, current_app.config["UPLOAD_FOLDER"]).replace("\\", "/")
-
-
-def _remove_profile_image(path: str | None) -> None:
-    if not path:
-        return
-    abs_path = os.path.join(current_app.config["UPLOAD_FOLDER"], path.replace("/", os.sep))
-    if os.path.exists(abs_path):
-        try:
-            os.remove(abs_path)
-        except OSError:
-            pass
 
 
 @login_required
@@ -115,8 +116,11 @@ def profile():
 
 
 @login_required
+@transactional
 def edit_profile():
     """Edit current user's account details (username, email, password)."""
+    if request.method == "POST":
+        fetchone("SELECT id FROM users WHERE id=%s FOR UPDATE", (session["user_id"],))
     u = current_user()
     uid = u["id"]
 
@@ -137,7 +141,7 @@ def edit_profile():
         flash("Username must be 3–30 characters and contain only letters, numbers, or underscore.", "error")
         return redirect(url_for("edit_profile"))
 
-    if not _EMAIL_RE.match(new_email):
+    if len(new_email) > 100 or not _EMAIL_RE.match(new_email):
         flash("Please enter a valid email address.", "error")
         return redirect(url_for("edit_profile"))
 
@@ -181,6 +185,8 @@ def edit_profile():
     if uploaded_photo and uploaded_photo.filename:
         try:
             new_profile_image = _save_profile_image(uid, uploaded_photo)
+            saved_path = os.path.join(current_app.config["UPLOAD_FOLDER"], new_profile_image)
+            after_rollback(lambda: cleanup_upload(saved_path))
         except ValueError as exc:
             flash(str(exc), "error")
             return redirect(url_for("edit_profile"))
@@ -195,11 +201,15 @@ def edit_profile():
     if new_profile_image is not None:
         updates.append("profile_image=%s")
         params.append(new_profile_image)
-        _remove_profile_image(u.get("profile_image"))
+        if u.get("profile_image"):
+            old_path = os.path.join(current_app.config["UPLOAD_FOLDER"], u["profile_image"])
+            after_commit(lambda: cleanup_upload(old_path, notify=True))
     elif remove_photo and u.get("profile_image"):
         updates.append("profile_image=%s")
         params.append(None)
-        _remove_profile_image(u.get("profile_image"))
+        if u.get("profile_image"):
+            old_path = os.path.join(current_app.config["UPLOAD_FOLDER"], u["profile_image"])
+            after_commit(lambda: cleanup_upload(old_path, notify=True))
 
     params.append(uid)
     execute(
@@ -281,6 +291,7 @@ def user_profile(user_id: int):
 
 
 @login_required
+@transactional
 def follow_user(user_id: int):
     viewer = current_user()
     follower_id = viewer["id"]
@@ -322,6 +333,7 @@ def follow_user(user_id: int):
 
 
 @login_required
+@transactional
 def unfollow_user(user_id: int):
     viewer = current_user()
     follower_id = viewer["id"]

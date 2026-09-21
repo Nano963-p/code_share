@@ -4,7 +4,7 @@ Flask application for sharing projects with public or private visibility.
 
 ## Local setup
 
-Use Python 3.10 or newer and an existing MySQL database with the application schema.
+Use Python 3.11 or newer and MySQL 8 with the application schema.
 
 ```powershell
 python -m venv .venv
@@ -86,4 +86,56 @@ There is no atomic transaction spanning MySQL and disk. A process crash or disk
 cleanup failure can leave orphaned bytes. Administrators should reconcile stored
 paths against `files.filepath` and `users.profile_image` before manually removing
 any orphan. Cleanup is not automatically retried. Profile-photo replacement and
-follow/unfollow transactions are outside this project-focused change.
+follow/unfollow changes now use transactions as well (see below).
+
+## Browsing project files
+
+Open a project and choose **Browse files**, or **Preview** beside an upload.
+Text and code files have escaped, syntax-highlighted previews with line numbers.
+Markdown READMEs render automatically when present. README HTML is sanitized;
+scripts, embedded HTML widgets, and remote images are not rendered.
+
+ZIP uploads can be browsed by folder without extracting them to disk. Private
+projects keep their membership checks on every preview request. Previews are
+limited to 1 MB of UTF-8 text, 5,000 ZIP entries, and a bounded compression ratio.
+Unsupported, encrypted, oversized, or unsafe files show a download alternative.
+ZIP downloads contain the original archive, not just the selected member.
+
+## Profile photos and storage cleanup
+
+Photo replacement/removal commits the database update before removing the old
+photo. Failed database writes remove the new photo; uncertain commits preserve
+both for reconciliation. Images are decoded and re-encoded as static PNGs,
+limited to 10 MB and 20 million input pixels, and resized to at most 1024×1024.
+Animations and embedded metadata are not retained.
+
+Scan unreferenced uploads without changing files:
+
+```powershell
+python manage_db.py orphans
+```
+
+After stopping all writers and making a backup, move them to a NEW quarantine
+directory (the command never permanently deletes them):
+
+```powershell
+python manage_db.py orphans --quarantine backups/orphans-review --maintenance-confirmed
+```
+
+Both project files and current profile photos are protected. Missing references
+block quarantine so potential recovery copies stay available. The quarantine
+manifest records the original upload root, relative paths, and SHA-256 hashes;
+restore a quarantined file by copying it from `files/<relative-path>` back to its
+original location after verifying the hash and confirming the target is absent.
+If a move fails partway, completed moves and remaining originals are preserved;
+the manifest describes the complete planned set. Do not delete quarantines until
+you have reviewed them. The current repository still tracks historical uploads;
+quarantining those files produces Git deletions that must be reviewed separately.
+
+## GitHub checks
+
+`.github/workflows/tests.yml` runs unit/security tests on Python 3.11 and 3.12
+for pushes and pull requests. A separate MySQL 8 job exercises fresh migrations,
+baseline adoption, backup/restore, and failure recovery on disposable databases.
+The workflow uses only temporary CI credentials and does not need your `.env`.
+It will first run on GitHub after the commit is pushed.

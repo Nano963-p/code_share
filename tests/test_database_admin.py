@@ -63,6 +63,45 @@ class DatabaseAdminTests(unittest.TestCase):
         source = admin.migration_files()[0].read_text()
         self.assertNotRegex(source, r"(?im)^\s*(DROP|USE|CREATE DATABASE)\b")
 
+    def test_orphan_scan_preserves_referenced_files_and_quarantine_is_reversible(self):
+        with tempfile.TemporaryDirectory() as folder:
+            uploads = Path(folder) / "uploads"
+            uploads.mkdir()
+            keep = uploads / "keep.txt"
+            keep.write_text("registered")
+            avatar = uploads / "photo.png"
+            avatar.write_bytes(b"avatar")
+            orphan = uploads / "unused.txt"
+            orphan.write_text("recoverable")
+            def records(conn, sql, params=()):
+                return [(str(keep),)] if "FROM files" in sql else [("photo.png",)]
+            with patch.object(admin, "connect"), patch.object(admin, "rows", side_effect=records):
+                files, missing = admin.orphan_inventory("test", uploads)
+                self.assertEqual(files, [orphan])
+                self.assertEqual(missing, [])
+                admin.quarantine_orphans("test", uploads)
+                self.assertTrue(orphan.exists())
+                quarantine = Path(folder) / "quarantine"
+                admin.quarantine_orphans("test", uploads, quarantine)
+            self.assertTrue(keep.exists())
+            self.assertTrue(avatar.exists())
+            self.assertFalse(orphan.exists())
+            recovered = quarantine / "files/unused.txt"
+            self.assertEqual(recovered.read_text(), "recoverable")
+            manifest = json.loads((quarantine / "manifest.json").read_text())
+            self.assertEqual(admin.digest(recovered), manifest["files"]["unused.txt"])
+
+    def test_orphan_cleanup_refuses_missing_references_and_unsafe_target(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(admin, "connect"):
+            uploads = Path(folder) / "uploads"
+            uploads.mkdir()
+            with patch.object(admin, "rows", return_value=[(str(uploads / "missing.txt"),)]):
+                with self.assertRaisesRegex(ValueError, "missing references"):
+                    admin.quarantine_orphans("test", uploads, Path(folder) / "quarantine")
+            with patch.object(admin, "rows", return_value=[]):
+                with self.assertRaisesRegex(ValueError, "outside"):
+                    admin.quarantine_orphans("test", uploads, uploads / "quarantine")
+
 
 @unittest.skipUnless(os.getenv("RUN_MYSQL_ADMIN_TESTS") == "1", "Opt-in disposable MySQL recovery test")
 class MySQLRecoveryTests(unittest.TestCase):
