@@ -39,10 +39,10 @@ These tests use temporary files, mocked calls, and an in-memory SQLite test adap
 the local database. Both file routes enforce private-project membership and
 serve project uploads as attachments. Only current profile images are inline.
 
-The previously committed database password needs rotation by the database
-administrator; removing it from the current code does not erase Git history.
-The ignore rules prevent new uploads and caches being added; previously tracked
-files remain in Git until a separate cleanup.
+Database credentials belong only in a private `.env`; use your own credentials
+when installing the app. Uploads, caches, backups, and local recovery notes are
+excluded from version control. See [publication cleanup](docs/publication.md)
+for details about the sanitized repository history.
 
 ## Form protection and login limits
 
@@ -129,8 +129,8 @@ restore a quarantined file by copying it from `files/<relative-path>` back to it
 original location after verifying the hash and confirming the target is absent.
 If a move fails partway, completed moves and remaining originals are preserved;
 the manifest describes the complete planned set. Do not delete quarantines until
-you have reviewed them. The current repository still tracks historical uploads;
-quarantining those files produces Git deletions that must be reviewed separately.
+you have reviewed them. Uploaded files are local application data and are not
+included in the public repository.
 
 ## GitHub checks
 
