@@ -1,16 +1,38 @@
-# Code Share
+<p align="center">
+  <img src="docs/assets/readme-banner.svg" alt="Code Share — Share projects. Explore code. Learn together." width="1200">
+</p>
 
-**An academic web application for sharing source-code projects and managing collaboration.**
+<p align="center">
+  <strong>An academic web application for sharing source-code projects and managing collaboration.</strong>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white" alt="Python 3.11 and 3.12">
+  <img src="https://img.shields.io/badge/Backend-Flask-0F172A?style=flat-square&amp;logo=flask&amp;logoColor=white" alt="Flask backend">
+  <img src="https://img.shields.io/badge/Database-MySQL%208-00758F?style=flat-square&amp;logo=mysql&amp;logoColor=white" alt="MySQL 8 database">
+  <img src="https://img.shields.io/badge/Purpose-Academic-0F766E?style=flat-square" alt="Academic project">
+</p>
+
+<p align="center">
+  <a href="#features">Features</a> &nbsp;·&nbsp;
+  <a href="#getting-started">Getting started</a> &nbsp;·&nbsp;
+  <a href="#suggested-demonstration">Demo guide</a> &nbsp;·&nbsp;
+  <a href="#documentation">Documentation</a>
+</p>
+
+---
 
 Code Share allows users to publish projects, control their visibility, share files,
 and interact through comments, stars, and follows. Built with Flask and MySQL,
 it demonstrates how authentication, relational data, access control, and file
 storage work together in a complete web application.
 
-The project is intended for learning, academic demonstration, and further development.
-Uploaded source code can be viewed and downloaded; it is never executed by the application.
+> [!NOTE]
+> Built for learning, academic demonstration, and further development.
+> Uploaded source code can be viewed and downloaded; it is never executed by the application.
 
-## Contents
+<details>
+<summary><strong>Explore the README</strong></summary>
 
 - [Academic objectives](#academic-objectives)
 - [Features](#features)
@@ -22,6 +44,8 @@ Uploaded source code can be viewed and downloaded; it is never executed by the a
 - [Security and data integrity](#security-and-data-integrity)
 - [Limitations and future work](#limitations-and-future-work)
 - [Documentation](#documentation)
+
+</details>
 
 ## Academic objectives
 
@@ -79,6 +103,12 @@ flowchart LR
     Flask --> Storage[Local upload storage]
     Maintenance[Database maintenance CLI] --> Database
     Maintenance --> Storage
+    classDef interface fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    classDef application fill:#ccfbf1,stroke:#0d9488,color:#134e4a
+    classDef persistence fill:#f1f5f9,stroke:#64748b,color:#0f172a
+    class Browser,Templates interface
+    class Flask,Maintenance application
+    class Database,Storage persistence
 ```
 
 ```text
