@@ -4,7 +4,7 @@ import mysql.connector
 from flask import render_template, request, redirect, url_for, flash, session
 
 from db import fetchone, execute
-from utils import hash_password, verify_password
+from utils import hash_password, verify_password, session_fingerprint
 
 
 _USERNAME_RE = re.compile(r"^[a-zA-Z0-9_]+$")
@@ -28,6 +28,7 @@ def login():
 
     session.clear()
     session["user_id"] = u["id"]
+    session["credential_fingerprint"] = session_fingerprint(u["password_hash"])
     return redirect(url_for("dashboard"))
 
 
@@ -49,7 +50,7 @@ def signup():
         flash("Username can only contain letters, numbers, and underscore (_).", "error")
         return redirect(url_for("signup"))
 
-    if not _EMAIL_RE.match(email):
+    if len(email) > 100 or not _EMAIL_RE.match(email):
         flash("Please enter a valid email address.", "error")
         return redirect(url_for("signup"))
 
@@ -62,17 +63,18 @@ def signup():
         return redirect(url_for("signup"))
 
     existing = fetchone(
-        "SELECT id FROM users WHERE username_norm=LOWER(TRIM(%s)) OR email_norm=LOWER(TRIM(%s))",
+        "SELECT id FROM users WHERE username_norm=LOWER(TRIM(%s)) OR email_norm=LOWER(TRIM(%s)) LIMIT 1",
         (username, email),
     )
     if existing:
         flash("Username or email already exists.", "error")
         return redirect(url_for("signup"))
 
+    password_hash = hash_password(password)
     try:
         uid = execute(
             "INSERT INTO users (username, email, password_hash) VALUES (%s, %s, %s)",
-            (username, email, hash_password(password)),
+            (username, email, password_hash),
         )
     except mysql.connector.Error as e:
         # 3819: CHECK constraint violated (MySQL 8)
@@ -90,6 +92,7 @@ def signup():
 
     session.clear()
     session["user_id"] = uid
+    session["credential_fingerprint"] = session_fingerprint(password_hash)
     return redirect(url_for("dashboard"))
 
 

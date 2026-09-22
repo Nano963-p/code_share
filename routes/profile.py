@@ -152,6 +152,7 @@ def edit_profile():
         FROM users
         WHERE (username_norm = LOWER(TRIM(%s)) OR email_norm = LOWER(TRIM(%s)))
           AND id <> %s
+        LIMIT 1
         """,
         (new_username, new_email, uid),
     )
@@ -216,6 +217,15 @@ def edit_profile():
         f"UPDATE users SET {', '.join(updates)} WHERE id=%s",
         params,
     )
+
+    if password_hash:
+        # Clear this browser only after commit; other sessions fail their next
+        # credential check because the stored password hash has changed.
+        def password_changed():
+            session.clear()
+            flash("Password updated. Please sign in again.", "success")
+        after_commit(password_changed)
+        return redirect(url_for("login"))
 
     flash("Profile updated.", "success")
     return redirect(url_for("profile"))

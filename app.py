@@ -224,6 +224,13 @@ def create_app():
     def search():
         user = current_user()
         q = request.args.get("q", "").strip()
+        try:
+            page = int(request.args.get("page", "1"))
+        except ValueError:
+            abort(400)
+        if page < 1 or page > 1_000_000:
+            abort(400)
+        page_size = 30
 
         if not q:
             return render_template(
@@ -281,8 +288,8 @@ def create_app():
                       AND t2.name LIKE %s
                 )
             GROUP BY p.id
-            ORDER BY stars DESC, p.created_at DESC
-            LIMIT 30
+            ORDER BY stars DESC, p.created_at DESC, p.id DESC
+            LIMIT %s OFFSET %s
             """
             params = (user["id"], f"%{q_tag}%")
         else:
@@ -319,8 +326,8 @@ def create_app():
                     )
                 )
             GROUP BY p.id
-            ORDER BY stars DESC, p.created_at DESC
-            LIMIT 30
+            ORDER BY stars DESC, p.created_at DESC, p.id DESC
+            LIMIT %s OFFSET %s
             """
             params = (
                 user["id"],
@@ -357,15 +364,17 @@ def create_app():
                 tag_count = 0
 
 
-        results = fetchall(sql, params)
+        rows = fetchall(sql, params + (page_size + 1, (page - 1) * page_size))
+        has_next = len(rows) > page_size
+        results = rows[:page_size]
 
         return render_template(
             "search.html",
             user=user,
             query=q,
             results=results,
-            page=1,
-            has_next=False,
+            page=page,
+            has_next=has_next,
             tag_count=tag_count,
             tag_label=tag_label,
         )

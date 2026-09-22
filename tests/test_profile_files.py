@@ -11,6 +11,9 @@ from config import Config
 
 class ProfilePhotoTests(unittest.TestCase):
     def setUp(self):
+        authentication = patch("utils.valid_session", return_value=True)
+        authentication.start()
+        self.addCleanup(authentication.stop)
         with patch.multiple(Config, SECRET_KEY="s" * 48, DB_PASSWORD="test-only"):
             self.app = create_app()
         self.temp = tempfile.TemporaryDirectory()

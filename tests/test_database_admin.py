@@ -123,11 +123,34 @@ class MySQLRecoveryTests(unittest.TestCase):
                 admin.migrate(source_db)  # Idempotent.
                 with admin.connect(source_db) as conn:
                     admin.rows(conn, "INSERT INTO users(username,email,password_hash) VALUES ('recovery_test','recovery@example.com','test-only')")
+                    admin.rows(conn, "INSERT INTO users(username,email,password_hash) VALUES ('second_user','second@example.com','test-only'), ('third_user','third@example.com','test-only')")
                     admin.rows(conn, "INSERT INTO projects(owner_id,title) VALUES (1,'Recovery fixture')")
                     admin.rows(conn, "INSERT INTO files(project_id,uploaded_by,filename,filepath,filesize) VALUES (1,1,'example.txt',%s,%s)", (str(path), path.stat().st_size))
                     before = admin.table_counts(conn)
                     # Simulate the existing, pre-migrations deployment.
                     admin.rows(conn, "DROP TABLE schema_migrations")
+                # Two matching accounts must produce validation, not an unread
+                # result error from MySQL's unbuffered cursor.
+                from app import create_app
+                from utils import session_fingerprint
+                with patch.object(admin.Config, "SECRET_KEY", "r" * 48):
+                    app = create_app()
+                app.config.update(DB_NAME=source_db, TESTING=True, WTF_CSRF_ENABLED=False)
+                client = app.test_client()
+                response = client.post("/signup", data={"username": "recovery_test", "email": "second@example.com",
+                    "password": "unused-password", "confirm_password": "unused-password"})
+                self.assertEqual(response.status_code, 302)
+                self.assertTrue(response.location.endswith("/signup"))
+                with app.app_context():
+                    fingerprint = session_fingerprint("test-only")
+                with client.session_transaction() as session:
+                    session["user_id"] = 3
+                    session["credential_fingerprint"] = fingerprint
+                response = client.post("/profile/edit", data={"username": "recovery_test", "email": "second@example.com"})
+                self.assertEqual(response.status_code, 302)
+                self.assertTrue(response.location.endswith("/profile/edit"))
+                with admin.connect(source_db) as conn:
+                    self.assertEqual(admin.rows(conn, "SELECT username,email FROM users WHERE id=3"), [("third_user", "third@example.com")])
                 with self.assertRaisesRegex(ValueError, "no migration history"):
                     admin.migrate(source_db)
                 with admin.connect(source_db) as conn:

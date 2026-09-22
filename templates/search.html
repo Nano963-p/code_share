@@ -38,15 +38,19 @@
     {% endfor %}
   </div>
 
-  <div class="pagination">
-    {% if page|default(1) > 1 %}
-      <a href="{{ url_for('search', q=query, page=page-1) }}">← Prev</a>
-    {% endif %}
-    {% if has_next|default(false) %}
-      <a href="{{ url_for('search', q=query, page=page+1) }}">Next →</a>
-    {% endif %}
-  </div>
+
 {% else %}
   <p>No results found.</p>
+{% endif %}
+{% if page > 1 or has_next %}
+<nav class="pagination" aria-label="Search result pages">
+  {% if page > 1 %}
+    <a class="btn btn-secondary" href="{{ url_for('search', q=query, page=page-1) }}">Previous</a>
+  {% endif %}
+  <span class="muted">Page {{ page }}</span>
+  {% if has_next %}
+    <a class="btn btn-secondary" href="{{ url_for('search', q=query, page=page+1) }}">Next</a>
+  {% endif %}
+</nav>
 {% endif %}
 {% endblock %}

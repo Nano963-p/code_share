@@ -192,14 +192,18 @@
       <h2>Upload File</h2>
     </div>
 
+    {% if can_contribute %}
     <form class="upload" method="POST" enctype="multipart/form-data" action="{{ url_for('project', pid=project[0]) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="file" name="file" required>
       <button class="btn btn-secondary" type="submit">
         Upload
       </button>
-      <div class="muted small">Allowed: png, jpg, jpeg, pdf, txt, py, js</div>
+      <div class="muted small">Code, documents, images, and archives supported. Maximum request size: 40 MiB.</div>
     </form>
+    {% else %}
+    <p class="muted">Only project members can upload files. Ask the owner to add you as a member.</p>
+    {% endif %}
 
     <div class="panel-head mt">
       <h2>Files</h2>
@@ -248,6 +252,7 @@
     <h2>Comments</h2>
   </div>
 
+  {% if can_contribute %}
   <form class="comment-form" method="POST" action="{{ url_for('project', pid=project[0]) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <textarea name="message" rows="3" placeholder="Write a comment…" required></textarea>
@@ -255,6 +260,9 @@
       <button class="btn btn-primary" type="submit">Post Comment</button>
     </div>
   </form>
+  {% else %}
+  <p class="muted">Only project members can comment. Ask the owner to add you as a member.</p>
+  {% endif %}
 
   {% if comments and comments|length > 0 %}
     <div class="comments mt">

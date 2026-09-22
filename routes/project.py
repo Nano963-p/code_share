@@ -428,6 +428,7 @@ def project(pid: int):
         tags=tags_list,
         can_edit_tags=can_edit_tags,
         can_edit_project=can_edit_project,
+        can_contribute=role in ("owner", "admin", "member"),
         transfer_candidates=[m for m in members_t if m[0] != p["owner_id"]],
     )
 

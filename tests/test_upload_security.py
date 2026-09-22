@@ -10,6 +10,9 @@ from config import Config
 
 class UploadSecurityTests(unittest.TestCase):
     def setUp(self):
+        authentication = patch("utils.valid_session", return_value=True)
+        authentication.start()
+        self.addCleanup(authentication.stop)
         self.config = patch.multiple(Config, SECRET_KEY="s" * 48, DB_PASSWORD="test-only")
         self.config.start()
         self.addCleanup(self.config.stop)

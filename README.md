@@ -237,7 +237,7 @@ A short academic demonstration can follow this sequence:
 2. Create a public project with a description, languages, and tags.
 3. Upload a code file or ZIP containing source code and a Markdown README.
 4. Browse the uploaded files and show the highlighted code and README previews.
-5. Use the second account to comment, star the project, and follow its author.
+5. Add the second account as a project member, then use it to comment, star the project, and follow its author.
 6. Create a private project and demonstrate access before and after adding a member.
 7. Show the automated tests and explain how database transactions protect updates.
 
@@ -277,6 +277,9 @@ and pull requests. Check the repository's Actions tab for the latest run result.
 
 The implementation includes password hashing, CSRF protection for POST forms,
 login rate limits, session-cookie controls, and role checks for private resources.
+Password changes sign out the current browser and invalidate other sessions on
+their next protected request. Sessions created before this protection was added
+also require a fresh login.
 File handling validates storage paths, sanitizes Markdown previews, and re-encodes
 profile photos to static PNG images. Project uploads are served as attachments.
 
@@ -323,8 +326,6 @@ These are proposed extensions, not current capabilities.
 - [Database schema](migrations/0001_initial.sql)
 - [Automated test workflow](.github/workflows/tests.yml)
 
-## License
+## Academic author
 
-No license file is currently included. Public visibility alone does not grant
-permission to reuse or redistribute the code. A license should be selected by
-the project owner before offering the project for general reuse.
+Realized by **Manar El Hynani** at **ENSA Khouribga** as an academic project.

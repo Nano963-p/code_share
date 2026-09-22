@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import os
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -19,10 +20,24 @@ def verify_password(password: str, password_hash: str) -> bool:
     return check_password_hash(password_hash, password)
 
 
+def session_fingerprint(password_hash: str) -> str:
+    """Bind a signed session to a credential without exposing its password hash."""
+    return hmac.new(current_app.secret_key.encode(), password_hash.encode(), hashlib.sha256).hexdigest()
+
+
+def valid_session() -> bool:
+    fingerprint = session.get("credential_fingerprint")
+    if not isinstance(fingerprint, str):
+        return False
+    row = fetchone("SELECT password_hash FROM users WHERE id=%s", (session["user_id"],))
+    return bool(row and hmac.compare_digest(fingerprint, session_fingerprint(row["password_hash"])))
+
+
 def login_required(view):
     @wraps(view)
     def wrapper(*args, **kwargs):
-        if not session.get("user_id"):
+        if not session.get("user_id") or not valid_session():
+            session.clear()
             return redirect(url_for("login"))
         return view(*args, **kwargs)
     return wrapper
