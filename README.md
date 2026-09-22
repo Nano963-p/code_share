@@ -1,141 +1,300 @@
 # Code Share
 
-Flask application for sharing projects with public or private visibility.
+**An academic web application for sharing source-code projects and managing collaboration.**
 
-## Local setup
+Code Share allows users to publish projects, control their visibility, share files,
+and interact through comments, stars, and follows. Built with Flask and MySQL,
+it demonstrates how authentication, relational data, access control, and file
+storage work together in a complete web application.
 
-Use Python 3.11 or newer and MySQL 8 with the application schema.
+The project is intended for learning, academic demonstration, and further development.
+Uploaded source code can be viewed and downloaded; it is never executed by the application.
+
+## Contents
+
+- [Academic objectives](#academic-objectives)
+- [Features](#features)
+- [Technology stack](#technology-stack)
+- [Architecture](#architecture)
+- [Getting started](#getting-started)
+- [Suggested demonstration](#suggested-demonstration)
+- [Testing](#testing)
+- [Security and data integrity](#security-and-data-integrity)
+- [Limitations and future work](#limitations-and-future-work)
+- [Documentation](#documentation)
+
+## Academic objectives
+
+This project provides practical experience in:
+
+- Developing a server-rendered web application with Python, HTML, CSS, and JavaScript.
+- Modelling users, projects, memberships, and social interactions in a relational database.
+- Implementing authentication and role-based authorization.
+- Validating uploaded content and safely displaying user-generated text.
+- Using transactions to keep related database changes consistent.
+- Maintaining reproducible database migrations, regression tests, and recovery tools.
+
+## Features
+
+| Area | Implemented capabilities |
+| --- | --- |
+| Accounts | Registration, login, logout, and profile updates, including password and profile-photo changes. |
+| Projects | Public or private visibility, project metadata, languages, tags, and active or archived status. |
+| Collaboration | Owner, administrator, and member roles, membership management, and ownership transfer. |
+| Files | Uploads and downloads, highlighted text/code previews, and ZIP folder browsing without extraction. |
+| Project documentation | Automatic, sanitized Markdown README previews when a README is available. |
+| Community | Comments, project stars, user follows, search, and activity views. |
+| Maintenance | Versioned migrations, verified database/upload backups, restoration, and orphan-file review. |
+
+Private-project permissions also apply to file previews and downloads.
+
+## Technology stack
+
+| Component | Technology |
+| --- | --- |
+| Backend | Python and Flask |
+| Database | MySQL 8 with InnoDB; MySQL Connector/Python |
+| Frontend | Jinja2 templates, HTML, CSS, and vanilla JavaScript |
+| Forms and request protection | Flask-WTF and Flask-Limiter |
+| File previews | Pygments, Markdown, and Bleach |
+| Image processing | Pillow |
+| Configuration | Environment variables loaded with python-dotenv |
+| Tests and automation | Python unittest and GitHub Actions |
+
+Dependency versions are pinned in [requirements.txt](requirements.txt).
+The CI configuration tests Python 3.11 and 3.12.
+
+## Architecture
+
+The application uses Flask's application-factory pattern and separates route
+handlers, database access, shared utilities, and presentation templates.
+Structured application data is stored in MySQL; uploaded files are stored on disk.
+
+```mermaid
+flowchart LR
+    Browser[Web browser] --> Flask[Flask application and routes]
+    Flask --> Templates[Jinja2 templates]
+    Templates --> Browser
+    Flask --> Database[(MySQL database)]
+    Flask --> Storage[Local upload storage]
+    Maintenance[Database maintenance CLI] --> Database
+    Maintenance --> Storage
+```
+
+```text
+code_share/
+|-- app.py                  # Application factory and application-wide handlers
+|-- config.py               # Environment-based configuration
+|-- db.py                   # Database access and transaction helpers
+|-- utils.py                # Shared authentication, permissions, and file helpers
+|-- manage_db.py            # Migration, backup, restore, and storage commands
+|-- routes/                 # Authentication, dashboard, profile, project, and preview routes
+|-- templates/              # Server-rendered HTML templates
+|-- static/                 # Stylesheets, JavaScript, and application images
+|-- migrations/             # Versioned database schema and baseline metadata
+|-- tests/                  # Regression and database recovery tests
+|-- docs/                   # Database operations and publication notes
+|-- .github/workflows/      # Continuous integration configuration
+|-- .env.example            # Configuration template without private credentials
+`-- requirements.txt        # Pinned Python dependencies
+```
+
+The main database entities are users, projects, project memberships, files,
+comments, stars, followers, tags, and activity records. Association tables link
+projects to members, tags, and languages. Foreign keys and unique constraints
+support data integrity. See [the initial migration](migrations/0001_initial.sql)
+for the full schema.
+
+## Getting started
+
+### Prerequisites
+
+- Git.
+- Python 3.11 or 3.12; Python 3.12 is used in the commands below.
+- A running MySQL 8 server.
+- The `mysql` and `mysqldump` command-line clients for database maintenance.
+- An existing MySQL account with the permissions needed to create the database
+  and apply its schema. The setup command does not create a MySQL user.
+
+The following instructions use **Windows PowerShell**, including the PowerShell
+terminal in VS Code. Run each command from the repository root unless stated otherwise.
+
+### 1. Clone the repository and install dependencies
 
 ```powershell
-python -m venv .venv
+git clone https://github.com/Nano963-p/code_share.git
+cd code_share
+py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+If the Windows Python launcher (`py`) is unavailable, use `python -m venv .venv`
+after confirming that `python --version` points to a supported Windows installation.
+Virtual-environment activation is optional because these commands use its Python directly.
+
+### 2. Configure the application
+
+For a fresh installation, copy the configuration template:
+
+```powershell
 Copy-Item .env.example .env
 .\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-Put the generated value in `SECRET_KEY` in `.env`, and configure your database
-credentials. Do not overwrite an existing `.env`. The app refuses startup without
-a secret of at least 32 characters and a database password. Keep `.env` private.
-Changing the secret signs out existing sessions. Enable `SESSION_COOKIE_SECURE`
-when deploying with HTTPS; leave it false for local HTTP.
+Do not overwrite an existing `.env`. Open `.env`, paste the generated value into
+`SECRET_KEY`, and fill in your own database credentials.
 
-Use `python manage_db.py init --database code_share` for a new database.
-For existing data, follow the [backup and baseline instructions](docs/database.md)
-before applying migrations. The old destructive `schema.sql` is now disabled.
+| Variable | Purpose |
+| --- | --- |
+| `SECRET_KEY` | Private session-signing secret, at least 32 characters long. |
+| `DB_HOST` / `DB_PORT` | MySQL server address and port; normally `127.0.0.1` and `3306`. |
+| `DB_USER` / `DB_PASSWORD` | Credentials for your existing MySQL account. |
+| `DB_NAME` | Application database name; use `code_share` for the commands below. |
+| `SESSION_COOKIE_SECURE` | Keep `false` for local HTTP; use `true` with HTTPS. |
+| `LOGIN_RATE_LIMIT` | Defaults to `5 per minute;30 per hour` per client IP. |
+| `RATELIMIT_STORAGE_URI` | Defaults to `memory://` for local, single-process use. |
+| `MYSQL_BIN_DIR` | Optional directory containing MySQL clients if automatic discovery fails. |
 
-```powershell
-.\.venv\Scripts\python.exe -B -m flask --app app:create_app run --host 127.0.0.1 --port 5000
-```
+The application requires a valid secret and a nonempty database password.
+Keep `.env` private; it is excluded from version control.
 
-Open http://127.0.0.1:5000. This command starts a development server.
-
-## Security regression checks
-
-```powershell
-.\.venv\Scripts\python.exe -B -m unittest discover -s tests -v
-```
-
-These tests use temporary files, mocked calls, and an in-memory SQLite test adapter; they do not change
-the local database. Both file routes enforce private-project membership and
-serve project uploads as attachments. Only current profile images are inline.
-
-Database credentials belong only in a private `.env`; use your own credentials
-when installing the app. Uploads, caches, backups, and local recovery notes are
-excluded from version control. See [publication cleanup](docs/publication.md)
-for details about the sanitized repository history.
-
-## Form protection and login limits
-
-Every POST form includes a session-bound CSRF token, including login, signup,
-uploads, and logout. Missing, invalid, or expired tokens return HTTP 400 before
-an action runs. Logout is POST-only. Successful login/signup clears the old
-session so its CSRF token cannot be reused.
-
-Login accepts at most 5 POST attempts per minute and 30 per hour per client IP,
-including successful attempts. Excess attempts return HTTP 429 with Retry-After.
-GET requests are not limited. Set LOGIN_RATE_LIMIT to adjust these limits.
-Forwarded IP headers are not trusted by default; configure trusted proxy handling
-for your deployment before running behind a reverse proxy.
-
-RATELIMIT_STORAGE_URI defaults to memory:// for local single-process development.
-These counters reset on restart and are not shared across workers. Production
-must use shared storage, for example redis://localhost:6379/0 (install the Redis
-extra with pip install "Flask-Limiter[redis]==4.1.1").
-
-## Project transactions and file recovery
-
-Project POST actions commit their database changes and activity records together.
-Failures roll back the operation instead of retaining partial language lists,
-project metadata, or activity records. Project-ID mutations acquire a row lock
-to serialize uploads with project deletion. This is not a migration: the
-existing InnoDB tables and cascading foreign keys are still required.
-
-Uploads use exclusive file creation, so duplicate names do not overwrite other
-uploads. Empty files and partial writes are cleaned up. A database statement
-failure removes the newly saved upload after rollback. If the connection fails
-during commit, the outcome may be uncertain: bytes are retained and the failure
-is logged, so a possibly committed file record does not lose its contents.
-
-File and project deletion remove database records before deleting registered
-files from storage. A SQL or commit failure leaves the stored files intact.
-Disk cleanup failures are logged and shown as warnings; deleted records cannot
-be downloaded through the application. Unregistered files and empty directories
-are not recursively deleted.
-
-There is no atomic transaction spanning MySQL and disk. A process crash or disk
-cleanup failure can leave orphaned bytes. Administrators should reconcile stored
-paths against `files.filepath` and `users.profile_image` before manually removing
-any orphan. Cleanup is not automatically retried. Profile-photo replacement and
-follow/unfollow changes now use transactions as well (see below).
-
-## Browsing project files
-
-Open a project and choose **Browse files**, or **Preview** beside an upload.
-Text and code files have escaped, syntax-highlighted previews with line numbers.
-Markdown READMEs render automatically when present. README HTML is sanitized;
-scripts, embedded HTML widgets, and remote images are not rendered.
-
-ZIP uploads can be browsed by folder without extracting them to disk. Private
-projects keep their membership checks on every preview request. Previews are
-limited to 1 MB of UTF-8 text, 5,000 ZIP entries, and a bounded compression ratio.
-Unsupported, encrypted, oversized, or unsafe files show a download alternative.
-ZIP downloads contain the original archive, not just the selected member.
-
-## Profile photos and storage cleanup
-
-Photo replacement/removal commits the database update before removing the old
-photo. Failed database writes remove the new photo; uncertain commits preserve
-both for reconciliation. Images are decoded and re-encoded as static PNGs,
-limited to 10 MB and 20 million input pixels, and resized to at most 1024×1024.
-Animations and embedded metadata are not retained.
-
-Scan unreferenced uploads without changing files:
+### 3. Initialize a new database
 
 ```powershell
-python manage_db.py orphans
+.\.venv\Scripts\python.exe manage_db.py init --database code_share
 ```
 
-After stopping all writers and making a backup, move them to a NEW quarantine
-directory (the command never permanently deletes them):
+This creates a new database and applies the versioned schema. It refuses to
+replace an existing database. If you already have application data, follow the
+[backup and migration guide](docs/database.md) instead. The old `schema.sql`
+reset entry point is disabled.
+
+### 4. Start the application
 
 ```powershell
-python manage_db.py orphans --quarantine backups/orphans-review --maintenance-confirmed
+.\.venv\Scripts\python.exe -m flask --app app:create_app run --host 127.0.0.1 --port 5000
 ```
 
-Both project files and current profile photos are protected. Missing references
-block quarantine so potential recovery copies stay available. The quarantine
-manifest records the original upload root, relative paths, and SHA-256 hashes;
-restore a quarantined file by copying it from `files/<relative-path>` back to its
-original location after verifying the hash and confirming the target is absent.
-If a move fails partway, completed moves and remaining originals are preserved;
-the manifest describes the complete planned set. Do not delete quarantines until
-you have reviewed them. Uploaded files are local application data and are not
-included in the public repository.
+Open [Code Share locally](http://127.0.0.1:5000) and create an account through the
+registration page. There are no supplied demo-account credentials. Press `Ctrl+C`
+to stop the server. If port 5000 is occupied, use `--port 5001` and open that port.
 
-## GitHub checks
+This command runs Flask's development server for local use.
 
-`.github/workflows/tests.yml` runs unit/security tests on Python 3.11 and 3.12
-for pushes and pull requests. A separate MySQL 8 job exercises fresh migrations,
-baseline adoption, backup/restore, and failure recovery on disposable databases.
-The workflow uses only temporary CI credentials and does not need your `.env`.
-It will first run on GitHub after the commit is pushed.
+### Linux, macOS, or WSL
+
+In a separate checkout for your Linux/macOS environment, use the equivalent commands:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+cp .env.example .env
+.venv/bin/python -c "import secrets; print(secrets.token_urlsafe(48))"
+# Edit .env with the generated secret and your MySQL credentials before continuing.
+.venv/bin/python manage_db.py init --database code_share
+.venv/bin/python -m flask --app app:create_app run --host 127.0.0.1 --port 5000
+```
+
+Use a native virtual environment for each operating system. Do not recreate or
+reuse a Windows `.venv` with WSL's Python. MySQL must be reachable from the
+environment in which you run the application.
+
+## Suggested demonstration
+
+A short academic demonstration can follow this sequence:
+
+1. Register two accounts and update a profile.
+2. Create a public project with a description, languages, and tags.
+3. Upload a code file or ZIP containing source code and a Markdown README.
+4. Browse the uploaded files and show the highlighted code and README previews.
+5. Use the second account to comment, star the project, and follow its author.
+6. Create a private project and demonstrate access before and after adding a member.
+7. Show the automated tests and explain how database transactions protect updates.
+
+Use sample content that you have permission to share. Local uploads and account
+data are not included in this repository.
+
+## Testing
+
+Run the regression suite from PowerShell:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+By default, the suite uses temporary files, mocks, and an in-memory SQLite adapter;
+it does not modify your application database. Tests cover form protection,
+private-file access, preview sanitization and limits, profile images, transaction
+failures, and database maintenance behavior.
+
+The live MySQL recovery test is opt-in. It requires MySQL clients and an account
+that can create and drop disposable test databases:
+
+```powershell
+$env:RUN_MYSQL_ADMIN_TESTS = '1'
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p test_database_admin.py -v
+Remove-Item Env:RUN_MYSQL_ADMIN_TESTS
+```
+
+This test creates temporary databases to exercise migrations, backups, restoration,
+and failure recovery, then cleans up its test databases.
+
+[GitHub Actions](.github/workflows/tests.yml) is configured to run the regression
+suite on Python 3.11 and 3.12 and a separate recovery job against MySQL 8 on pushes
+and pull requests. Check the repository's Actions tab for the latest run result.
+
+## Security and data integrity
+
+The implementation includes password hashing, CSRF protection for POST forms,
+login rate limits, session-cookie controls, and role checks for private resources.
+File handling validates storage paths, sanitizes Markdown previews, and re-encodes
+profile photos to static PNG images. Project uploads are served as attachments.
+
+Database transactions group related mutations and activity records. File cleanup
+is coordinated with commit and rollback outcomes to reduce the risk of losing
+referenced uploads. Because MySQL and disk storage cannot share one atomic
+transaction here, interrupted operations can still leave orphaned files.
+
+To inspect unreferenced uploads without changing them:
+
+```powershell
+.\.venv\Scripts\python.exe manage_db.py orphans
+```
+
+The [database operations guide](docs/database.md) explains backups, restoration,
+and reversible quarantine. Stop all writers before operations that require
+maintenance mode; `--maintenance-confirmed` acknowledges this step but does not
+stop the application for you. Backups contain private data and must stay outside
+version control.
+
+## Limitations and future work
+
+- **Project sharing:** uploads are file snapshots. Git version history, merging,
+  and code execution are outside the current scope.
+- **Preview support:** previews are bounded to 1 MiB of UTF-8 text and 5,000 ZIP
+  entries, with compression-ratio checks. Other archive formats are downloadable
+  but do not have ZIP-style browsing. README previews omit remote images and scripts.
+- **Local storage:** uploads need explicit backup and reconciliation. Scheduled
+  backups and automatic cleanup retries are not implemented.
+- **Runtime configuration:** the default rate-limit store is process-local and
+  resets on restart. Multiple workers require shared storage; reverse-proxy
+  handling and HTTPS settings require environment-specific configuration.
+- **Evaluation:** automated regression tests support reliability, but do not
+  establish production readiness or constitute an independent security audit.
+
+Possible future academic work includes accessibility and usability evaluation,
+browser-based end-to-end tests, performance measurements, and file versioning.
+These are proposed extensions, not current capabilities.
+
+## Documentation
+
+- [Database migrations, backups, restoration, and storage recovery](docs/database.md)
+- [Public repository cleanup notes](docs/publication.md)
+- [Database schema](migrations/0001_initial.sql)
+- [Automated test workflow](.github/workflows/tests.yml)
+
+## License
+
+No license file is currently included. Public visibility alone does not grant
+permission to reuse or redistribute the code. A license should be selected by
+the project owner before offering the project for general reuse.
